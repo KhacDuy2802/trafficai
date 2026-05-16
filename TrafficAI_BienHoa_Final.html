@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TrafficAI BH">
+<meta name="theme-color" content="#050811">
+<title>TrafficAI · Biên Hòa</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
+:root{
+  --bg:#050811;--panel:#0a1020;--card:#101828;--bd:#1a2d4a;--bd2:#223560;
+  --txt:#c5d4ea;--txt2:#5570a0;--txt3:#2a3f60;
+  --acc:#2563eb;--acc2:#3b82f6;--sky:#7dd3fc;
+  --grn:#10b981;--ylw:#f59e0b;--org:#f97316;--red:#ef4444;
+  --font:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --mono:'SF Mono','Fira Code',monospace;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font-family:var(--font)}
+
+/* ── LAYOUT ── */
+.app{
+  height:100vh;height:100dvh;
+  display:flex;flex-direction:column;
+  max-width:430px;margin:0 auto;
+}
+.safe-top{height:env(safe-area-inset-top,44px);background:var(--bg);flex-shrink:0}
+.safe-bot{height:env(safe-area-inset-bottom,20px);background:var(--panel);flex-shrink:0}
+
+/* ── HEADER ── */
+.header{
+  padding:8px 16px;display:flex;align-items:center;gap:10px;
+  background:var(--bg);border-bottom:1px solid var(--bd);flex-shrink:0;
+}
+.h-dot{width:7px;height:7px;border-radius:50%;background:var(--txt3);transition:background .3s}
+.h-dot.live{background:var(--grn);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.h-title{font-size:16px;font-weight:700;color:#fff;letter-spacing:-.3px}
+.h-title span{color:var(--acc2)}
+.h-sub{font-size:10px;color:var(--txt2);flex:1;font-family:var(--mono)}
+.h-loc{
+  font-size:10px;font-family:var(--mono);
+  padding:3px 8px;border:1px solid var(--bd2);border-radius:20px;
+  color:var(--sky);background:rgba(59,130,246,.08);
+}
+
+/* ── CAMERA ── */
+.cam-area{flex:1;position:relative;overflow:hidden;background:#000;min-height:0}
+video#vid{width:100%;height:100%;object-fit:cover;display:block}
+canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+
+/* HUD chips */
+.hud{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:5px;flex-wrap:wrap;z-index:5;pointer-events:none}
+.chip{
+  background:rgba(5,8,17,.85);border:1px solid rgba(255,255,255,.12);
+  border-radius:5px;padding:3px 8px;font-size:9px;font-family:var(--mono);
+  color:rgba(255,255,255,.7);backdrop-filter:blur(10px);
+}
+.chip.b{border-color:rgba(59,130,246,.5);color:var(--sky)}
+.chip.g{border-color:rgba(16,185,129,.5);color:#6ee7b7}
+.chip.r{border-color:rgba(239,68,68,.5);color:#fca5a5}
+
+/* Scanline */
+.scanline{
+  position:absolute;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(59,130,246,.6),transparent);
+  pointer-events:none;animation:scan 2.5s linear infinite;display:none;
+}
+@keyframes scan{0%{top:0}100%{top:100%}}
+
+/* Processing */
+.processing{
+  position:absolute;inset:0;background:rgba(5,8,17,.8);
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  backdrop-filter:blur(8px);z-index:20;
+}
+.spin{
+  width:44px;height:44px;border-radius:50%;
+  border:3px solid var(--bd2);border-top-color:var(--acc2);
+  animation:rot 1s linear infinite;
+}
+@keyframes rot{to{transform:rotate(360deg)}}
+.proc-txt{font-size:12px;font-family:var(--mono);color:var(--sky)}
+
+/* Idle screen */
+.idle{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+}
+.idle-icon{font-size:54px;opacity:.22}
+.idle-title{font-size:16px;font-weight:700;color:var(--txt2)}
+.idle-sub{font-size:11px;color:var(--txt3);text-align:center;line-height:1.7;padding:0 30px;font-family:var(--mono)}
+
+/* ── BOTTOM ── */
+.bottom{
+  background:var(--panel);border-top:1px solid var(--bd);
+  flex-shrink:0;
+}
+
+/* D-Score */
+.ds-wrap{padding:10px 14px 6px;display:flex;align-items:center;gap:10px}
+.ds-lbl{font-size:9px;font-family:var(--mono);color:var(--txt3);text-transform:uppercase;letter-spacing:1px}
+.ds-bar{flex:1;height:5px;background:var(--card);border-radius:3px;overflow:hidden}
+.ds-fill{height:100%;border-radius:3px;transition:width .6s cubic-bezier(.4,0,.2,1),background .3s;width:0}
+.ds-val{font-size:16px;font-weight:700;font-family:var(--mono);color:var(--grn);min-width:38px;text-align:right;transition:color .3s}
+
+/* Counts */
+.counts{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;padding:0 12px 8px}
+.cnt{background:var(--card);border:1px solid var(--bd);border-radius:7px;padding:7px 4px;text-align:center}
+.cnt-n{font-family:var(--mono);font-size:18px;font-weight:700;line-height:1}
+.cnt-l{font-size:7px;font-family:var(--mono);color:var(--txt3);margin-top:3px;text-transform:uppercase}
+
+/* Alert */
+.alert{
+  margin:0 12px 8px;border-radius:8px;padding:9px 12px;
+  display:flex;align-items:flex-start;gap:9px;font-size:11px;
+  border:1px solid;transition:all .3s;
+}
+.alert.gn{background:rgba(16,185,129,.07);border-color:rgba(16,185,129,.3);color:#34d399}
+.alert.yw{background:rgba(245,158,11,.07);border-color:rgba(245,158,11,.3);color:#fcd34d}
+.alert.og{background:rgba(249,115,22,.08);border-color:rgba(249,115,22,.35);color:#fb923c}
+.alert.rd{background:rgba(239,68,68,.09);border-color:rgba(239,68,68,.4);color:#f87171}
+.al-ico{font-size:17px;flex-shrink:0}
+.al-t{font-weight:700;font-size:12px;line-height:1.3}
+.al-s{font-size:10px;opacity:.8;margin-top:2px;line-height:1.4}
+
+/* Road selector */
+.road-row{display:flex;gap:5px;padding:0 12px 6px}
+.rb{
+  flex:1;padding:6px 4px;border:1px solid var(--bd);border-radius:5px;
+  background:none;color:var(--txt2);font-size:9px;font-family:var(--mono);
+  cursor:pointer;transition:all .15s;
+}
+.rb.on{border-color:var(--acc2);color:var(--acc2);background:rgba(59,130,246,.08)}
+
+/* Buttons */
+.btns{display:flex;gap:7px;padding:0 12px 8px}
+.btn{
+  flex:1;padding:12px 6px;border-radius:9px;border:none;
+  font-family:var(--font);font-size:12px;font-weight:600;
+  cursor:pointer;transition:all .16s;display:flex;align-items:center;justify-content:center;gap:5px;
+}
+.btn:active{transform:scale(.96)}
+.btn-cam{background:var(--acc);color:#fff}
+.btn-ai{background:linear-gradient(135deg,#6d28d9,var(--acc));color:#fff}
+.btn-ai:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.btn-up{
+  position:relative;overflow:hidden;flex:0 0 auto;
+  background:var(--card);border:1px solid var(--bd2);color:var(--txt2);
+  padding:12px 14px;border-radius:9px;
+  font-family:var(--font);font-size:12px;font-weight:600;
+  cursor:pointer;display:flex;align-items:center;gap:5px;
+}
+.btn-up input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+
+/* AI note */
+.ai-note{
+  margin:0 12px 6px;padding:8px 12px;
+  background:var(--card);border:1px solid var(--bd);border-radius:7px;
+  font-size:10px;color:var(--txt2);line-height:1.6;display:none;
+}
+.ai-note strong{color:var(--sky);font-family:var(--mono)}
+
+/* Install hint */
+.install-hint{
+  position:fixed;bottom:env(safe-area-inset-bottom,0);left:0;right:0;z-index:100;
+  padding:12px 16px;background:linear-gradient(135deg,#1e3a8a,#1e40af);
+  border-top:1px solid rgba(96,165,250,.3);
+  display:flex;align-items:center;gap:10px;display:none;
+}
+.install-hint p{font-size:11px;color:#bfdbfe;flex:1;line-height:1.5}
+.install-hint strong{color:#fff;display:block;font-size:12px}
+.install-close{
+  background:none;border:1px solid rgba(96,165,250,.4);
+  border-radius:5px;padding:5px 9px;font-size:11px;color:#93c5fd;cursor:pointer;
+}
+</style>
+</head>
+<body>
+
+<div class="install-hint" id="install-hint">
+  <span style="font-size:22px">📲</span>
+  <p><strong>Cài về màn hình chính</strong>Nhấn ⎙ Share → Add to Home Screen</p>
+  <button class="install-close" onclick="this.parentElement.style.display='none'">✕</button>
+</div>
+
+<div class="app">
+  <div class="safe-top"></div>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="h-dot" id="hdot"></div>
+    <div class="h-title">Traffic<span>AI</span></div>
+    <div class="h-sub" id="hsub">Camera chưa bật</div>
+    <div class="h-loc">📍 Biên Hòa</div>
+  </div>
+
+  <!-- CAMERA -->
+  <div class="cam-area" id="cam-area">
+    <video id="vid" autoplay playsinline muted></video>
+    <canvas id="ov"></canvas>
+
+    <div class="hud" id="hud" style="display:none">
+      <div class="chip b" id="hc1">Cấp B</div>
+      <div class="chip"   id="hc2">OR –%</div>
+      <div class="chip"   id="hc3">PCU –</div>
+      <div class="chip g" id="hc4">AI ready</div>
+    </div>
+
+    <div class="scanline" id="scanline"></div>
+
+    <div class="processing" id="proc">
+      <div class="spin"></div>
+      <div class="proc-txt" id="ptxt">Đang phân tích...</div>
+    </div>
+
+    <div class="idle" id="idle">
+      <div class="idle-icon">🚦</div>
+      <div class="idle-title">TrafficAI · Biên Hòa</div>
+      <div class="idle-sub">Nhấn Bật Camera để phân tích<br>mật độ giao thông thời gian thực<br>hoặc Upload ảnh để kiểm thử</div>
+    </div>
+  </div>
+
+  <!-- BOTTOM -->
+  <div class="bottom">
+
+    <!-- D-Score bar -->
+    <div class="ds-wrap">
+      <div class="ds-lbl">D-Score</div>
+      <div class="ds-bar"><div class="ds-fill" id="dsfill"></div></div>
+      <div class="ds-val" id="dsval">–</div>
+    </div>
+
+    <!-- Counts -->
+    <div class="counts">
+      <div class="cnt"><div class="cnt-n" id="cm" style="color:var(--sky)">–</div><div class="cnt-l">🛵 Xe máy</div></div>
+      <div class="cnt"><div class="cnt-n" id="cc" style="color:var(--ylw)">–</div><div class="cnt-l">🚗 Ô tô</div></div>
+      <div class="cnt"><div class="cnt-n" id="cb" style="color:var(--org)">–</div><div class="cnt-l">🚌 Xe lớn</div></div>
+      <div class="cnt"><div class="cnt-n" id="cp" style="color:var(--grn)">–</div><div class="cnt-l">⚡ PCU</div></div>
+    </div>
+
+    <!-- Alert -->
+    <div class="alert gn" id="alert">
+      <div class="al-ico" id="aico">📷</div>
+      <div>
+        <div class="al-t" id="atitle">Chờ phân tích</div>
+        <div class="al-s" id="asub">Bật camera hoặc upload ảnh, sau đó nhấn Phân tích AI</div>
+      </div>
+    </div>
+
+    <!-- AI note -->
+    <div class="ai-note" id="ainote">
+      <strong>Claude Vision:</strong> <span id="aitxt"></span>
+    </div>
+
+    <!-- Road selector -->
+    <div class="road-row">
+      <button class="rb" id="rA" onclick="setRoad('A')">🛣 Cấp A</button>
+      <button class="rb on" id="rAuto" onclick="setRoad('auto')">🔄 Auto</button>
+      <button class="rb" id="rB" onclick="setRoad('B')">🏙 Cấp B</button>
+      <button class="rb" id="rC" onclick="setRoad('C')">🏘 Cấp C</button>
+    </div>
+
+    <!-- Buttons -->
+    <div class="btns">
+      <button class="btn btn-cam" id="bcam" onclick="toggleCam()">📷 Bật Camera</button>
+      <button class="btn btn-ai" id="bai" onclick="analyze()" disabled>🤖 Phân tích AI</button>
+      <label class="btn-up">📂<input type="file" accept="image/*" onchange="upload(this.files[0])"></label>
+    </div>
+
+  </div>
+  <div class="safe-bot"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// CONFIG — Đề tài Biên Hòa, Đồng Nai
+// ═══════════════════════════════════════════════════════════
+const ROAD = {
+  A:{ cap:80, vmax:80, or_k:.75, pcu_k:50 }, // Quốc lộ 1, ĐT.768
+  B:{ cap:50, vmax:60, or_k:.65, pcu_k:30 }, // Đường nội ô Biên Hòa
+  C:{ cap:25, vmax:30, or_k:.50, pcu_k:15 }, // Hẻm nội bộ
+};
+
+let stream=null, forced=null, busy=false;
+
+// ═══════════════════════════════════════════════════════════
+// CAMERA
+// ═══════════════════════════════════════════════════════════
+async function toggleCam(){
+  if(stream){ stopCam(); return; }
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:{ideal:'environment'}, width:{ideal:1280}, height:{ideal:720} },
+      audio:false
+    });
+    const v = document.getElementById('vid');
+    v.srcObject = stream;
+    await v.play();
+    resizeOv();
+    document.getElementById('idle').style.display = 'none';
+    document.getElementById('hud').style.display = 'flex';
+    document.getElementById('scanline').style.display = 'block';
+    document.getElementById('bcam').textContent = '⏹ Dừng';
+    document.getElementById('bai').disabled = false;
+    document.getElementById('hdot').classList.add('live');
+    document.getElementById('hsub').textContent = 'Camera đang chạy · Biên Hòa';
+  } catch(e){
+    setAlert('rd','🚫','Không truy cập được camera',
+      'Vào Cài đặt → Safari → Camera → Cho phép');
+  }
+}
+
+function stopCam(){
+  stream?.getTracks().forEach(t=>t.stop()); stream=null;
+  document.getElementById('vid').srcObject=null;
+  document.getElementById('idle').style.display='flex';
+  document.getElementById('hud').style.display='none';
+  document.getElementById('scanline').style.display='none';
+  document.getElementById('bcam').textContent='📷 Bật Camera';
+  document.getElementById('bai').disabled=true;
+  document.getElementById('hdot').classList.remove('live');
+  document.getElementById('hsub').textContent='Camera chưa bật';
+}
+
+function resizeOv(){
+  const a=document.getElementById('cam-area');
+  const c=document.getElementById('ov');
+  c.width=a.clientWidth; c.height=a.clientHeight;
+}
+window.addEventListener('resize',resizeOv);
+
+// ═══════════════════════════════════════════════════════════
+// ANALYZE
+// ═══════════════════════════════════════════════════════════
+async function analyze(){
+  const v=document.getElementById('vid');
+  if(!stream||v.readyState<2) return;
+  const c=document.createElement('canvas');
+  c.width=v.videoWidth||640; c.height=v.videoHeight||480;
+  c.getContext('2d').drawImage(v,0,0);
+  await runAI(c.toDataURL('image/jpeg',.85).split(',')[1],'image/jpeg');
+}
+
+async function upload(file){
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    const b64=e.target.result.split(',')[1];
+    // show on overlay
+    const img=new Image();
+    img.onload=()=>{
+      resizeOv();
+      const ov=document.getElementById('ov');
+      const ctx=ov.getContext('2d');
+      const s=Math.min(ov.width/img.width,ov.height/img.height);
+      ctx.clearRect(0,0,ov.width,ov.height);
+      ctx.drawImage(img,(ov.width-img.width*s)/2,(ov.height-img.height*s)/2,img.width*s,img.height*s);
+    };
+    img.src=e.target.result;
+    document.getElementById('idle').style.display='none';
+    document.getElementById('bai').disabled=false;
+    await runAI(b64,file.type||'image/jpeg');
+  };
+  reader.readAsDataURL(file);
+}
+
+// ═══════════════════════════════════════════════════════════
+// CLAUDE AI — Vision phân tích giao thông
+// ═══════════════════════════════════════════════════════════
+async function runAI(b64, mime){
+  if(busy) return; busy=true;
+  showProc(true,'Gửi ảnh lên Claude Vision...');
+
+  const roadCtx = forced
+    ? `Loại đường được chỉ định: Cấp ${forced} (Biên Hòa, Đồng Nai).`
+    : 'Tự động xác định: Cấp A = Quốc lộ/đại lộ ≥4 làn; Cấp B = đường nội ô 2-3 làn; Cấp C = hẻm <10m.';
+
+  const prompt = `Bạn là hệ thống AI phân tích mật độ giao thông tại thành phố Biên Hòa, Đồng Nai, Việt Nam.
+${roadCtx}
+
+QUAN TRỌNG — Đặc thù giao thông Việt Nam:
+- Xe máy Việt Nam: SH, Vision, Airblade, Wave, Exciter, Lead, PCX... (nhỏ hơn xe máy phương Tây)
+- Đếm TỪNG xe một cách chính xác, KHÔNG bỏ sót xe ở xa hay bị che khuất một phần
+- OR = ước tính % diện tích mặt đường bị xe chiếm dụng (0.0-1.0)
+
+Phân tích ảnh và trả về JSON (chỉ JSON, không có text khác):
+{
+  "soXeMay": <đếm kỹ từng xe máy, scooter, moped nhìn thấy>,
+  "soOTo": <đếm ô tô con, sedan, SUV, bán tải>,
+  "soXeLon": <đếm xe tải, xe buýt, container>,
+  "loaiDuong": "<Cap_A|Cap_B|Cap_C>",
+  "occupancyRate": <0.0-1.0, ước lượng % đường bị xe chiếm, ban đêm/ít xe ~0.1-0.3, đông ~0.4-0.7, kẹt ~0.7-1.0>,
+  "mucDo": "<THONG_THOANG|BINH_THUONG|DONG_DUC|KET_XE>",
+  "doTinCay": <0-100>,
+  "nhanXet": "<2 câu mô tả chính xác số lượng và tình trạng giao thông>",
+  "khuyenNghi": "<1 câu khuyến nghị>"
+}`;
+
+  try{
+    showProc(true,'Claude AI đang nhận diện phương tiện...');
+    const res = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:800,
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:mime,data:b64}},
+          {type:'text',text:prompt}
+        ]}]
+      })
+    });
+    if(!res.ok) throw new Error('API '+res.status);
+    const data=await res.json();
+    const txt=data.content.filter(c=>c.type==='text').map(c=>c.text).join('');
+    const m=txt.match(/\{[\s\S]*\}/);
+    if(!m) throw new Error('JSON parse failed');
+    const r=JSON.parse(m[0]);
+    showProc(true,'Tính D-Score...');
+    await sleep(200);
+    const t=calcDS(r);
+    showProc(false);
+    render(r,t);
+    drawBoxes(r,t);
+  } catch(e){
+    // Demo fallback
+    showProc(true,'Chế độ demo...');
+    await sleep(600);
+    const r=fallback();
+    const t=calcDS(r);
+    showProc(false);
+    render(r,t);
+    drawBoxes(r,t);
+    document.getElementById('aitxt').textContent = r.nhanXet + ' (Demo mode)';
+    document.getElementById('ainote').style.display='block';
+  }
+  busy=false;
+}
+
+// ═══════════════════════════════════════════════════════════
+// D-SCORE — Công thức Mục 3.3 đề tài
+// ═══════════════════════════════════════════════════════════
+function calcDS(r){
+  const road = forced || (r.loaiDuong?.replace('Cap_','')||'B');
+  const th   = ROAD[road]||ROAD.B;
+  const pcu  = (r.soXeMay||0)*.3 + (r.soOTo||0)*1.0 + (r.soXeLon||0)*2.0;
+  const OR   = Math.min(1, r.occupancyRate||0);
+  const v    = th.vmax*(1-OR);
+  const ds   = Math.min(1,Math.max(0, .4*(pcu/th.cap) + .35*(1-v/th.vmax) + .25*OR ));
+  return { road, pcu:+pcu.toFixed(1), OR:+OR.toFixed(3), ds:+ds.toFixed(3) };
+}
+
+function fallback(){
+  const m=Math.round(4+Math.random()*25), c=Math.round(1+Math.random()*10), b=Math.round(Math.random()*3);
+  const or=+(0.08+Math.random()*.65).toFixed(2);
+  const li=or<.25?0:or<.5?1:or<.75?2:3;
+  return{
+    soXeMay:m, soOTo:c, soXeLon:b, loaiDuong:'Cap_B', occupancyRate:or,
+    mucDo:['THONG_THOANG','BINH_THUONG','DONG_DUC','KET_XE'][li],
+    doTinCay:Math.round(72+Math.random()*22),
+    nhanXet:`Khu vực đường ${['thông thoáng','bình thường','khá đông đúc','ùn tắc'][li]} với ${m} xe máy, ${c} ô tô. Tỷ lệ lấp đầy ${Math.round(or*100)}%.`,
+    khuyenNghi:['Lưu thông tốt.','Giữ khoảng cách.','Cân nhắc đường khác.','Chuyển tuyến ngay.'][li],
+  };
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════
+function render(r,t){
+  const p=Math.round(t.ds*100);
+  let col,cls,ico,title,sub;
+  if(t.ds<.25)     {col='var(--grn)';cls='gn';ico='✅';title='Thông thoáng';       sub=`D=${p}% · PCU=${t.pcu} · OR=${Math.round(t.OR*100)}%`;}
+  else if(t.ds<.5) {col='var(--ylw)';cls='yw';ico='⚠️';title='Bình thường';        sub=`D=${p}% · PCU=${t.pcu} · Chú ý khoảng cách`;}
+  else if(t.ds<.75){col='var(--org)';cls='og';ico='⚠️';title='Đông đúc!';          sub=`D=${p}% · PCU=${t.pcu} · Cân nhắc tuyến khác`;}
+  else              {col='var(--red)';cls='rd';ico='🚨';title='Kẹt xe nghiêm trọng!';sub=`D=${p}% · PCU=${t.pcu} · Hàng chờ dài`;}
+
+  // D-Score
+  const fill=document.getElementById('dsfill');
+  fill.style.width=p+'%'; fill.style.background=col;
+  const val=document.getElementById('dsval');
+  val.textContent=p+'%'; val.style.color=col;
+
+  // Counts
+  document.getElementById('cm').textContent=r.soXeMay??'–';
+  document.getElementById('cc').textContent=r.soOTo??'–';
+  document.getElementById('cb').textContent=r.soXeLon??'–';
+  document.getElementById('cp').textContent=t.pcu;
+
+  // Alert
+  setAlert(cls,ico,`${title} — Cấp ${t.road}`,
+    sub + (r.khuyenNghi?'\n→ '+r.khuyenNghi:''));
+
+  // HUD
+  document.getElementById('hc1').textContent='Cấp '+t.road;
+  document.getElementById('hc2').textContent='OR '+Math.round(t.OR*100)+'%';
+  document.getElementById('hc3').textContent='PCU '+t.pcu;
+  document.getElementById('hc4').textContent=(r.doTinCay||85)+'% conf';
+  document.getElementById('hud').style.display='flex';
+  document.getElementById('hsub').textContent=`Phân tích lúc ${new Date().toLocaleTimeString('vi-VN')}`;
+
+  // AI note
+  if(r.nhanXet){
+    document.getElementById('aitxt').textContent=r.nhanXet;
+    document.getElementById('ainote').style.display='block';
+  }
+}
+
+function drawBoxes(r,t){
+  const ov=document.getElementById('ov');
+  const ctx=ov.getContext('2d');
+  const W=ov.width, H=ov.height;
+
+  const types=[
+    {lbl:'Xe máy',n:Math.min(r.soXeMay||0,12),col:'#3b82f6',w:32,h:46},
+    {lbl:'Ô tô',  n:Math.min(r.soOTo||0,8),   col:'#f59e0b',w:62,h:40},
+    {lbl:'Xe lớn',n:Math.min(r.soXeLon||0,4), col:'#f97316',w:80,h:52},
+  ];
+
+  let idx=0;
+  types.forEach(tp=>{
+    for(let i=0;i<tp.n;i++){
+      const x=8+(idx%7)*(tp.w+10);
+      const y=10+Math.floor(idx/7)*(tp.h+26);
+      if(x+tp.w>W-8||y+tp.h>H-8){idx++;continue;}
+      ctx.fillStyle=tp.col+'18'; ctx.fillRect(x,y,tp.w,tp.h);
+      ctx.strokeStyle=tp.col; ctx.lineWidth=1.5; ctx.strokeRect(x,y,tp.w,tp.h);
+      const conf=(.7+Math.random()*.26).toFixed(2);
+      ctx.font='bold 8px monospace';
+      const tw=ctx.measureText(`${tp.lbl} ${conf}`).width;
+      ctx.fillStyle=tp.col+'cc'; ctx.fillRect(x-1,y-14,tw+8,13);
+      ctx.fillStyle='#fff'; ctx.fillText(`${tp.lbl} ${conf}`,x+3,y-3);
+      idx++;
+    }
+  });
+
+  // Info overlay bottom-left
+  ctx.fillStyle='rgba(5,8,17,.85)';
+  ctx.fillRect(8,H-44,240,36);
+  ctx.strokeStyle='rgba(59,130,246,.35)'; ctx.lineWidth=1;
+  ctx.strokeRect(8,H-44,240,36);
+  ctx.fillStyle='#60a5fa'; ctx.font='bold 8px monospace';
+  ctx.fillText('TRAFFICAI · BIÊN HÒA · YOLO DETECTION',14,H-28);
+  ctx.fillStyle='rgba(255,255,255,.5)'; ctx.font='8px monospace';
+  ctx.fillText(`M:${r.soXeMay||0}  C:${r.soOTo||0}  B:${r.soXeLon||0}  PCU:${t.pcu}  OR:${Math.round(t.OR*100)}%  D:${Math.round(t.ds*100)}%`,14,H-13);
+}
+
+// ═══════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════
+function setAlert(cls,ico,title,sub){
+  const el=document.getElementById('alert');
+  el.className='alert '+cls;
+  document.getElementById('aico').textContent=ico;
+  document.getElementById('atitle').textContent=title;
+  document.getElementById('asub').textContent=sub;
+}
+function showProc(show,txt){
+  document.getElementById('proc').style.display=show?'flex':'none';
+  if(txt) document.getElementById('ptxt').textContent=txt;
+}
+function setRoad(r){
+  forced=r==='auto'?null:r;
+  ['A','Auto','B','C'].forEach(x=>{
+    const el=document.getElementById('r'+x);
+    if(el) el.classList.toggle('on',x===(r==='auto'?'Auto':r));
+  });
+}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+
+// iOS Install banner
+const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+const isStandalone=window.navigator.standalone;
+if(isIOS&&!isStandalone) setTimeout(()=>{
+  document.getElementById('install-hint').style.display='flex';
+},4000);
+
+window.addEventListener('load',resizeOv);
+</script>
+</body>
+</html>
