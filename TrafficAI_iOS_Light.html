@@ -32,6 +32,18 @@
   --sh2:0 2px 8px rgba(0,0,0,.1),0 8px 24px rgba(0,0,0,.06);
 }
 
+/* Dark mode */
+.dark{
+  --bg:#1c1c1e;
+  --card:#2c2c2e;
+  --card2:#3a3a3c;
+  --bd:rgba(255,255,255,.08);
+  --bd2:rgba(255,255,255,.12);
+  --tx:#f2f2f7;
+  --tx2:#aeaeb2;
+  --tx3:#6d6d72;
+}
+
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-family:var(--f);-webkit-font-smoothing:antialiased}
 .app{height:100vh;height:100dvh;display:flex;flex-direction:column;max-width:390px;margin:0 auto}
 .st{height:env(safe-area-inset-top,44px);flex-shrink:0;background:var(--card)}
@@ -194,6 +206,15 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .install-bar p{font-size:11px;color:rgba(255,255,255,.8);flex:1;line-height:1.5}
 .install-bar strong{color:#fff;display:block;font-size:12px}
 .install-bar button{background:rgba(255,255,255,.2);border:none;border-radius:6px;padding:4px 9px;font-size:11px;color:#fff;cursor:pointer}
+
+.mode-btn{
+  width:32px;height:32px;border-radius:50%;border:none;
+  background:rgba(118,118,128,.12);
+  font-size:16px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:.2s;
+}
+.mode-btn:active{transform:scale(.9)}
 </style>
 </head>
 <body>
@@ -213,6 +234,7 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
     <div class="hdr-dot" id="dot"></div>
     <div class="hdr-logo">Traffic<span>AI</span></div>
     <div class="hdr-loc">📍 Biên Hòa</div>
+    <button class="mode-btn" id="mode-btn" onclick="toggleMode()" title="Chuyển dark/light">🌙</button>
   </div>
   <div class="hdr-sub" id="stat">Sẵn sàng phân tích mật độ giao thông</div>
 </div>
@@ -541,6 +563,19 @@ function setRoad(r){
 function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
 if(/iphone|ipad|ipod/i.test(navigator.userAgent)&&!window.navigator.standalone)
   setTimeout(()=>document.getElementById('ib').style.display='flex',5000);
+
+// Dark mode
+let isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+function applyMode(){
+  document.documentElement.classList.toggle('dark', isDark);
+  document.getElementById('mode-btn').textContent = isDark ? '☀️' : '🌙';
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.content = isDark ? '#1c1c1e' : '#f2f2f7';
+}
+function toggleMode(){ isDark = !isDark; applyMode(); }
+applyMode();
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => { isDark = e.matches; applyMode(); });
+
 window.addEventListener('load',resizeOv);
 </script>
 </body>
