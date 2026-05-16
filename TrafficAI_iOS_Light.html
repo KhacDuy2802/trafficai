@@ -215,6 +215,80 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   flex-shrink:0;transition:.2s;
 }
 .mode-btn:active{transform:scale(.9)}
+
+/* ── TAB BAR ── */
+.tabbar{
+  display:flex;background:var(--card);
+  border-top:1px solid var(--bd);
+  padding:6px 0 env(safe-area-inset-bottom,6px);
+  flex-shrink:0;
+}
+.tab{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:4px 0;border:none;background:none;cursor:pointer;
+  font-size:10px;font-weight:500;color:var(--tx3);transition:.2s;
+}
+.tab.on{color:var(--ac)}
+.tab-ico{font-size:20px;line-height:1}
+
+/* ── PAGES ── */
+.page{display:none;flex-direction:column;flex:1;overflow:hidden}
+.page.on{display:flex}
+
+/* ── HISTORY PAGE ── */
+.hist-list{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+.hist-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--tx3)}
+.hist-empty-i{font-size:40px;opacity:.3}
+.hist-item{
+  background:var(--card);border-radius:12px;
+  box-shadow:0 1px 3px rgba(0,0,0,.06);
+  padding:11px 13px;
+  display:flex;align-items:center;gap:10px;
+}
+.hi-left{flex:1;min-width:0}
+.hi-loc{font-size:12px;font-weight:600;color:var(--tx)}
+.hi-sub{font-size:11px;color:var(--tx2);margin-top:1px}
+.hi-right{text-align:right}
+.hi-score{font-size:20px;font-weight:700;line-height:1}
+.hi-time{font-size:10px;color:var(--tx3);margin-top:2px}
+.hi-badge{
+  display:inline-block;padding:2px 8px;border-radius:10px;
+  font-size:10px;font-weight:600;margin-top:3px;
+}
+.hi-badge.gn{background:rgba(52,199,89,.12);color:#34c759}
+.hi-badge.yw{background:rgba(255,149,0,.12);color:#ff9500}
+.hi-badge.og{background:rgba(255,107,0,.12);color:#ff6b00}
+.hi-badge.rd{background:rgba(255,59,48,.12);color:#ff3b30}
+.hist-clear{
+  margin:0 12px 10px;padding:11px;
+  background:rgba(255,59,48,.08);border:1.5px solid rgba(255,59,48,.15);
+  border-radius:10px;color:#ff3b30;font-size:13px;font-weight:600;
+  cursor:pointer;text-align:center;
+}
+
+/* ── CHART PAGE ── */
+.chart-page{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.chart-section{background:var(--card);border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.06);padding:14px}
+.cs-title{font-size:13px;font-weight:600;color:var(--tx);margin-bottom:12px}
+.bar-chart{display:flex;align-items:flex-end;gap:3px;height:80px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.bar{width:100%;border-radius:3px 3px 0 0;transition:height .5s cubic-bezier(.4,0,.2,1);min-height:2px}
+.bar-lbl{font-size:8px;color:var(--tx3);font-family:var(--m)}
+.bar-val{font-size:8px;font-weight:600;color:var(--tx2)}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat-item{background:var(--card2);border-radius:10px;padding:10px;text-align:center}
+.stat-item-n{font-size:22px;font-weight:700;letter-spacing:-.5px}
+.stat-item-l{font-size:10px;color:var(--tx3);margin-top:2px}
+
+/* Export button */
+.export-btn{
+  margin:0 12px 8px;padding:12px;
+  background:var(--ac);border-radius:12px;
+  color:#fff;font-size:14px;font-weight:600;
+  border:none;cursor:pointer;text-align:center;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.export-btn:active{opacity:.85}
 </style>
 </head>
 <body>
@@ -334,6 +408,78 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   </div>
 
 </div>
+
+  <!-- EXPORT BTN (trong camera tab) -->
+  <button class="export-btn" id="export-btn" style="display:none" onclick="exportResult()">
+    📸 Lưu kết quả vào Camera Roll
+  </button>
+
+<!-- HISTORY PAGE -->
+<div class="page" id="page-hist">
+  <div style="padding:14px 12px 6px;background:var(--card);border-bottom:1px solid var(--bd);flex-shrink:0">
+    <div style="font-size:17px;font-weight:700">Lịch sử phân tích</div>
+    <div style="font-size:12px;color:var(--tx3);margin-top:2px">Biên Hòa · Tự động lưu</div>
+  </div>
+  <div class="hist-list" id="hist-list">
+    <div class="hist-empty" id="hist-empty">
+      <div class="hist-empty-i">📋</div>
+      <div style="font-size:14px;font-weight:500">Chưa có dữ liệu</div>
+      <div style="font-size:12px">Phân tích ảnh để bắt đầu ghi lại lịch sử</div>
+    </div>
+  </div>
+  <button class="hist-clear" onclick="clearHistory()">🗑 Xóa toàn bộ lịch sử</button>
+</div>
+
+<!-- CHART PAGE -->
+<div class="page" id="page-chart">
+  <div style="padding:14px 12px 6px;background:var(--card);border-bottom:1px solid var(--bd);flex-shrink:0">
+    <div style="font-size:17px;font-weight:700">Thống kê</div>
+    <div style="font-size:12px;color:var(--tx3);margin-top:2px">Xu hướng mật độ giao thông</div>
+  </div>
+  <div class="chart-page">
+    <div class="chart-section">
+      <div class="cs-title">D-Score theo thời gian</div>
+      <div class="bar-chart" id="bar-chart">
+        <div class="hist-empty" style="width:100%;font-size:11px">Chưa có dữ liệu</div>
+      </div>
+    </div>
+    <div class="chart-section">
+      <div class="cs-title">Tổng hợp tất cả phân tích</div>
+      <div class="stat-grid">
+        <div class="stat-item">
+          <div class="stat-item-n" id="s-moto" style="color:#007aff">0</div>
+          <div class="stat-item-l">🛵 Tổng xe máy</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-item-n" id="s-car" style="color:#ff9500">0</div>
+          <div class="stat-item-l">🚗 Tổng ô tô</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-item-n" id="s-avg" style="color:#34c759">–</div>
+          <div class="stat-item-l">📊 D-Score TB</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-item-n" id="s-count" style="color:#af52de">0</div>
+          <div class="stat-item-l">📷 Số lần phân tích</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB BAR -->
+<div class="tabbar" id="tabbar">
+  <button class="tab on" id="tab-cam" onclick="switchTab('cam')">
+    <div class="tab-ico">📷</div>Camera
+  </button>
+  <button class="tab" id="tab-hist" onclick="switchTab('hist')">
+    <div class="tab-ico">📋</div>Lịch sử
+  </button>
+  <button class="tab" id="tab-chart" onclick="switchTab('chart')">
+    <div class="tab-ico">📊</div>Thống kê
+  </button>
+</div>
+
 <div class="sb"></div>
 </div>
 
@@ -575,6 +721,142 @@ function applyMode(){
 function toggleMode(){ isDark = !isDark; applyMode(); }
 applyMode();
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => { isDark = e.matches; applyMode(); });
+
+
+// ── TABS ────────────────────────────────────────
+let currentTab = 'cam';
+function switchTab(tab){
+  currentTab = tab;
+  ['cam','hist','chart'].forEach(t => {
+    document.getElementById('tab-'+t)?.classList.toggle('on', t===tab);
+  });
+  // Pages
+  const camPage = document.querySelector('.app > .cam');
+  const botPage = document.querySelector('.app > .bot');
+  document.getElementById('page-hist').classList.toggle('on', tab==='hist');
+  document.getElementById('page-chart').classList.toggle('on', tab==='chart');
+  if(camPage) camPage.style.display = tab==='cam' ? '' : 'none';
+  if(botPage) botPage.style.display = tab==='cam' ? '' : 'none';
+  if(tab==='chart') renderChart();
+}
+
+// ── HISTORY ─────────────────────────────────────
+let history = JSON.parse(localStorage.getItem('trafficai_hist') || '[]');
+
+function saveHistory(r, t){
+  const item = {
+    time: new Date().toISOString(),
+    moto: r.soXeMay||0, car: r.soOTo||0, bus: r.soXeLon||0,
+    pcu: t.pcu, or: Math.round(t.OR*100), ds: Math.round(t.ds*100),
+    road: t.road, status: getStatus(t.ds)
+  };
+  history.unshift(item);
+  if(history.length > 50) history.pop();
+  localStorage.setItem('trafficai_hist', JSON.stringify(history));
+  renderHistory();
+}
+
+function getStatus(ds){
+  if(ds<.25)return'gn';if(ds<.5)return'yw';if(ds<.75)return'og';return'rd';
+}
+function getStatusText(s){
+  return{gn:'Thông thoáng',yw:'Bình thường',og:'Đông đúc',rd:'Kẹt xe!'}[s]||'–';
+}
+
+function renderHistory(){
+  const list = document.getElementById('hist-list');
+  const empty = document.getElementById('hist-empty');
+  if(!history.length){empty.style.display='flex';return;}
+  empty.style.display='none';
+  // Remove old items
+  list.querySelectorAll('.hist-item').forEach(el=>el.remove());
+  history.slice(0,20).forEach(item=>{
+    const d = new Date(item.time);
+    const timeStr = d.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}) + ' · ' + d.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit'});
+    const el = document.createElement('div');
+    el.className='hist-item';
+    el.innerHTML = `
+      <div style="font-size:28px">${{gn:'🟢',yw:'🟡',og:'🟠',rd:'🔴'}[item.status]||'⚪'}</div>
+      <div class="hi-left">
+        <div class="hi-loc">Đường Cấp ${item.road} · Biên Hòa</div>
+        <div class="hi-sub">🛵${item.moto} 🚗${item.car} 🚌${item.bus} · PCU ${item.pcu} · OR ${item.or}%</div>
+        <div><span class="hi-badge ${item.status}">${getStatusText(item.status)}</span></div>
+      </div>
+      <div class="hi-right">
+        <div class="hi-score" style="color:${{gn:'#34c759',yw:'#ff9500',og:'#ff6b00',rd:'#ff3b30'}[item.status]}">${item.ds}%</div>
+        <div class="hi-time">${timeStr}</div>
+      </div>`;
+    list.appendChild(el);
+  });
+}
+
+function clearHistory(){
+  if(!confirm('Xóa toàn bộ lịch sử?'))return;
+  history=[];localStorage.removeItem('trafficai_hist');renderHistory();
+}
+
+// ── CHART ───────────────────────────────────────
+function renderChart(){
+  const bars = document.getElementById('bar-chart');
+  // Stats
+  const total = history.length;
+  const sumM = history.reduce((s,h)=>s+h.moto,0);
+  const sumC = history.reduce((s,h)=>s+h.car,0);
+  const avgDs = total ? Math.round(history.reduce((s,h)=>s+h.ds,0)/total) : 0;
+  document.getElementById('s-moto').textContent=sumM;
+  document.getElementById('s-car').textContent=sumC;
+  document.getElementById('s-avg').textContent=total?(avgDs+'%'):'–';
+  document.getElementById('s-count').textContent=total;
+
+  if(!total){bars.innerHTML='<div class="hist-empty" style="width:100%;font-size:11px;flex-direction:column">Chưa có dữ liệu</div>';return;}
+
+  // Bar chart - last 12
+  const last12 = history.slice(0,12).reverse();
+  const maxDs = Math.max(...last12.map(h=>h.ds),1);
+  bars.innerHTML = last12.map(h=>{
+    const d=new Date(h.time);
+    const col={gn:'#34c759',yw:'#ff9500',og:'#ff6b00',rd:'#ff3b30'}[h.status]||'#007aff';
+    const pct = Math.max(4, (h.ds/maxDs)*100);
+    return `<div class="bar-col">
+      <div class="bar-val" style="color:${col}">${h.ds}%</div>
+      <div class="bar" style="height:${pct}%;background:${col};opacity:.85"></div>
+      <div class="bar-lbl">${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── EXPORT ─────────────────────────────────────
+function exportResult(){
+  const ov=document.getElementById('ov');
+  const vid=document.getElementById('vid');
+  // Tạo canvas tổng hợp
+  const c=document.createElement('canvas');
+  c.width=ov.width;c.height=ov.height;
+  const ctx=c.getContext('2d');
+  if(vid.srcObject && vid.readyState>=2){
+    const s=Math.min(ov.width/vid.videoWidth,ov.height/vid.videoHeight);
+    ctx.drawImage(vid,(ov.width-vid.videoWidth*s)/2,(ov.height-vid.videoHeight*s)/2,vid.videoWidth*s,vid.videoHeight*s);
+  }
+  ctx.drawImage(ov,0,0);
+  // Tải xuống
+  const a=document.createElement('a');
+  a.href=c.toDataURL('image/png');
+  a.download='TrafficAI_BienHoa_'+Date.now()+'.png';
+  a.click();
+}
+
+// ── Patch render để lưu history ─────────────────
+const _origRender = render;
+// Override render to also save history
+const origRenderFn = render;
+window.render = function(r,t){
+  origRenderFn(r,t);
+  saveHistory(r,t);
+  document.getElementById('export-btn').style.display='flex';
+};
+
+// Init
+renderHistory();
 
 window.addEventListener('load',resizeOv);
 </script>
