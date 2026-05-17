@@ -559,8 +559,7 @@ VEHICLE DEFINITIONS for Vietnam traffic:
 - soXeLon: buses, trucks, container trucks, large vans (large body, commercial/public transport)
 - DO NOT count: bicycles, pedestrians, animals, stationary parked vehicles that are clearly off the road
 
-ROAD CLASS (if not forced):${forced?'':'\n- Cap_A: expressway/highway, wide lanes, fast moving\n- Cap_B: main urban road, 2–4 lanes, mixed traffic\n- Cap_C: small road, alley, 1–2 lanes, slow'}
-${forced?`Use forced road class: ${forced}`:'Classify based on road width, lane markings, and traffic visible in image.'}
+ROAD CLASS:${forced?' Use forced class: '+forced+'. Do not change it.':'\n- Cap_A: expressway/highway, wide lanes, fast moving\n- Cap_B: main urban road, 2-4 lanes, mixed traffic\n- Cap_C: small road, alley, 1-2 lanes, slow\nClassify based on road width, lane markings, and traffic visible in image.'}
 
 occupancyRate: estimate what fraction (0.0–1.0) of the ROAD SURFACE (not image) is covered by vehicles. 0.0 = empty road, 1.0 = complete gridlock. Be conservative.
 
