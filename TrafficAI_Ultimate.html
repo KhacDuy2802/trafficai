@@ -179,6 +179,19 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 </head>
 <body>
 
+<!-- API KEY MODAL -->
+<div id="key-modal" style="position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.6);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;padding:24px">
+  <div style="background:var(--card);border-radius:20px;padding:24px;width:100%;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,.3)">
+    <div style="font-size:32px;text-align:center;margin-bottom:12px">🔑</div>
+    <div style="font-size:17px;font-weight:700;text-align:center;margin-bottom:6px">Nhập Anthropic API Key</div>
+    <div style="font-size:12px;color:var(--tx2);text-align:center;margin-bottom:18px;line-height:1.5">Key được lưu trên máy bạn, không gửi đi đâu khác.<br>Lấy key tại <a href="https://console.anthropic.com" target="_blank" style="color:var(--ac)">console.anthropic.com</a></div>
+    <input id="key-input" type="password" placeholder="sk-ant-api03-..." style="width:100%;padding:12px;border-radius:10px;border:1.5px solid var(--bd2);background:var(--card2);color:var(--tx);font-size:13px;font-family:monospace;outline:none;box-sizing:border-box;margin-bottom:8px">
+    <div id="key-err" style="color:#ff3b30;font-size:11px;margin-bottom:8px;display:none">⚠️ Key không hợp lệ, phải bắt đầu bằng sk-ant-</div>
+    <button onclick="saveKey()" style="width:100%;padding:13px;background:#007aff;color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px">Xác nhận</button>
+    <button onclick="skipKey()" style="width:100%;padding:8px;background:none;color:#aeaeb2;border:none;font-size:12px;cursor:pointer">Bỏ qua (chỉ dùng YOLO on-device)</button>
+  </div>
+</div>
+
 <div class="install-bar" id="ib">
   <span style="font-size:18px">📲</span>
   <p><strong>Thêm vào màn hình chính</strong>Share → Add to Home Screen</p>
@@ -359,6 +372,16 @@ const CONF=0.4,IOU=0.45,SZ=640;
 let stream=null,forced=null,busy=false;
 let ortSession=null,modelReady=false;
 let history=JSON.parse(localStorage.getItem('tai_hist')||'[]');
+let apiKey=localStorage.getItem('tai_apikey')||'';
+
+function saveKey(){
+  const v=document.getElementById('key-input').value.trim();
+  if(!v.startsWith('sk-ant-')){document.getElementById('key-err').style.display='block';return;}
+  apiKey=v;localStorage.setItem('tai_apikey',v);
+  document.getElementById('key-modal').style.display='none';
+}
+function skipKey(){document.getElementById('key-modal').style.display='none';}
+window.addEventListener('DOMContentLoaded',()=>{if(apiKey)document.getElementById('key-modal').style.display='none';});
 
 // ═══════════════════════════════════════════════════
 // LOAD YOLO MODEL
@@ -443,8 +466,15 @@ async function upload(file){
       ctx.drawImage(img,(ov.width-img.width*s)/2,(ov.height-img.height*s)/2,img.width*s,img.height*s);
       document.getElementById('idle').style.display='none';
       document.getElementById('bai').disabled=false;
-      // Dùng Claude Vision
-      await runClaude(b64,file.type||'image/jpeg',img.width,img.height);
+      // Dùng YOLO nếu có model, fallback Claude
+      if(modelReady){
+        const tmpC=document.createElement('canvas');tmpC.width=img.width;tmpC.height=img.height;
+        tmpC.getContext('2d').drawImage(img,0,0);
+        const imgData=tmpC.getContext('2d').getImageData(0,0,img.width,img.height);
+        await runYOLO_full(imgData,img.width,img.height);
+      } else {
+        await runClaude(b64,file.type||'image/jpeg',img.width,img.height);
+      }
     };img.src=url;
   };r.readAsDataURL(file);
 }
@@ -538,7 +568,7 @@ async function runClaude(b64,mime,imgW,imgH){
   }
   try{
     const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',headers:{'Content-Type':'application/json'},
+      method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,
         messages:[{role:'user',content:[
           {type:'image',source:{type:'base64',media_type:mime,data:b64}},
