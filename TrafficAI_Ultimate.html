@@ -542,16 +542,30 @@ async function runClaude(b64,mime,imgW,imgH){
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,
         messages:[{role:'user',content:[
           {type:'image',source:{type:'base64',media_type:mime,data:b64}},
-          {type:'text',text:`Phân tích giao thông thành phố Biên Hòa, Đồng Nai.${forced?' Cấp '+forced+'.':''}
+          {type:'text',text:`You are a traffic counting AI for Biên Hòa city, Vietnam.${forced?' Road class forced: '+forced+'.':''}
 
-QUAN TRỌNG - Quy tắc đếm RẤT CHẶT:
-- CHỈ đếm xe nhìn thấy ÍT NHẤT 70% thân xe, màu sắc và hình dạng rõ ràng
-- Xe bị che khuất, xe mờ, xe ở xa nhỏ → KHÔNG đếm
-- Nếu không chắc chắn → KHÔNG đếm
-- Thà đếm thiếu còn hơn đếm thừa
-- Đếm lại 2 lần trước khi trả kết quả
+TASK: Count vehicles visible in this traffic image. Apply STRICT rules below.
 
-JSON only: {"soXeMay":<số>,"soOTo":<số>,"soXeLon":<số>,"loaiDuong":"Cap_A|Cap_B|Cap_C","occupancyRate":<0.0-1.0>,"nhanXet":"<1 câu>"}`;
+COUNTING RULES (mandatory):
+1. Count a vehicle ONLY if at least 60% of its body is clearly visible — shape, outline, and position must be unambiguous
+2. Do NOT count: shadows, reflections on wet road, motion blur trails, duplicate views of the same vehicle, or any object you are not certain is a vehicle
+3. Each physical vehicle = exactly 1 count. A vehicle partially cut off at the image edge counts only if its front OR rear is clearly identifiable
+4. When uncertain → DO NOT count. Undercounting is better than overcounting.
+5. Scan the image in a grid pattern (top-left → top-right → bottom-left → bottom-right) to avoid missing or double-counting
+
+VEHICLE DEFINITIONS for Vietnam traffic:
+- soXeMay: motorbikes, scooters, mopeds, electric bikes, 3-wheel motorbikes (2–3 wheels, rider visible or seat visible)
+- soOTo: passenger cars, pickup trucks, SUVs, minivans (4 wheels, enclosed cabin)
+- soXeLon: buses, trucks, container trucks, large vans (large body, commercial/public transport)
+- DO NOT count: bicycles, pedestrians, animals, stationary parked vehicles that are clearly off the road
+
+ROAD CLASS (if not forced):${forced?'':'\n- Cap_A: expressway/highway, wide lanes, fast moving\n- Cap_B: main urban road, 2–4 lanes, mixed traffic\n- Cap_C: small road, alley, 1–2 lanes, slow'}
+${forced?`Use forced road class: ${forced}`:'Classify based on road width, lane markings, and traffic visible in image.'}
+
+occupancyRate: estimate what fraction (0.0–1.0) of the ROAD SURFACE (not image) is covered by vehicles. 0.0 = empty road, 1.0 = complete gridlock. Be conservative.
+
+Respond in JSON only. No explanation, no markdown, no extra text:
+{"soXeMay":<integer>,"soOTo":<integer>,"soXeLon":<integer>,"loaiDuong":"Cap_A|Cap_B|Cap_C","occupancyRate":<0.0-1.0>,"nhanXet":"<1 sentence in Vietnamese>"}`;
     list.appendChild(el);
   });
 }
