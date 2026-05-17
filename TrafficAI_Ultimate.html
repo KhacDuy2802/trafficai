@@ -565,8 +565,121 @@ ${forced?`Use forced road class: ${forced}`:'Classify based on road width, lane 
 occupancyRate: estimate what fraction (0.0–1.0) of the ROAD SURFACE (not image) is covered by vehicles. 0.0 = empty road, 1.0 = complete gridlock. Be conservative.
 
 Respond in JSON only. No explanation, no markdown, no extra text:
-{"soXeMay":<integer>,"soOTo":<integer>,"soXeLon":<integer>,"loaiDuong":"Cap_A|Cap_B|Cap_C","occupancyRate":<0.0-1.0>,"nhanXet":"<1 sentence in Vietnamese>"}`;
+{"soXeMay":<integer>,"soOTo":<integer>,"soXeLon":<integer>,"loaiDuong":"Cap_A|Cap_B|Cap_C","occupancyRate":<0.0-1.0>,"nhanXet":"<1 sentence in Vietnamese>"}`}
+        ]}]})
+    });
+    const j=await res.json();
+    const raw=j.content?.[0]?.text||'{}';
+    const clean=raw.replace(/```json|```/g,'').trim();
+    const r=JSON.parse(clean);
+    if(typeof r.soXeMay!=='number')throw new Error('Invalid response');
+    showProc(true,'Tính D-Score...');await sleep(100);
+    const t=calc(r);showProc(false);
+    render(r,t);
+    document.getElementById('export-btn').style.display='flex';
+    setStatus(`Claude Vision ✓ · ${(r.soXeMay||0)+(r.soOTo||0)+(r.soXeLon||0)} phương tiện · ${new Date().toLocaleTimeString('vi-VN')}`);
+    saveHistory(r,t);
+  }catch(e){
+    showProc(false);
+    setAl('rd','⚠️','Lỗi phân tích','Kiểm tra API key hoặc kết nối mạng: '+e.message);
+    setStatus('Lỗi Claude Vision');
+  }
+  busy=false;
+}
+
+// ═══════════════════════════════════════════════════
+// CALC D-SCORE
+// ═══════════════════════════════════════════════════
+function calc(r){
+  const road=forced||r.loaiDuong?.replace('Cap_','');
+  const cfg=ROAD[road]||ROAD['B'];
+  const pcu=(r.soXeMay||0)*0.5+(r.soOTo||0)*1+(r.soXeLon||0)*2.5;
+  const or=Math.min(1,r.occupancyRate||0);
+  const ds=Math.min(100,Math.round(or*100*0.6+Math.min(pcu/cfg.cap,1)*40));
+  let status='gn',ico='🟢',txt='Thông thoáng',sub='Lưu thông bình thường';
+  if(ds>=80){status='rd';ico='🔴';txt='Ùn tắc nghiêm trọng';sub='Khuyến cáo chọn tuyến khác';}
+  else if(ds>=60){status='og';ico='🟠';txt='Ùn tắc';sub='Di chuyển chậm, nên tránh';}
+  else if(ds>=40){status='yw';ico='🟡';txt='Đông đúc';sub='Lưu thông chậm hơn bình thường';}
+  return{pcu,ds,status,ico,txt,sub,road:road||'B'};
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER UI
+// ═══════════════════════════════════════════════════
+function render(r,t){
+  document.getElementById('cm').textContent=r.soXeMay||0;
+  document.getElementById('cc').textContent=r.soOTo||0;
+  document.getElementById('cb').textContent=r.soXeLon||0;
+  document.getElementById('cp').textContent=Math.round(t.pcu);
+  document.getElementById('dsv').textContent=t.ds;
+  document.getElementById('dsf').style.width=t.ds+'%';
+  const col={gn:'#34c759',yw:'#ff9500',og:'#ff6b00',rd:'#ff3b30'};
+  document.getElementById('dsv').style.color=col[t.status];
+  document.getElementById('dsf').style.background=col[t.status];
+  document.getElementById('dst').textContent=t.txt;
+  setAl(t.status,t.ico,t.txt,(r.nhanXet||t.sub));
+  document.getElementById('hc1').textContent='Cấp '+t.road;
+  document.getElementById('hc2').textContent='OR '+(Math.round((r.occupancyRate||0)*100))+'%';
+  document.getElementById('hc3').textContent='PCU '+Math.round(t.pcu);
+  const total=(r.soXeMay||0)*0.5+(r.soOTo||0)*1+(r.soXeLon||0)*2.5||1;
+  const mPct=(r.soXeMay||0)*0.5/total,cPct=(r.soOTo||0)/total,bPct=(r.soXeLon||0)*2.5/total;
+  const C=CIRC;
+  document.getElementById('pie-m').style.strokeDasharray=`${mPct*C} ${C}`;
+  document.getElementById('pie-c').style.strokeDasharray=`${cPct*C} ${C}`;
+  document.getElementById('pie-c').style.strokeDashoffset=-(mPct*C);
+  document.getElementById('pie-b').style.strokeDasharray=`${bPct*C} ${C}`;
+  document.getElementById('pie-b').style.strokeDashoffset=-((mPct+cPct)*C);
+  document.getElementById('pie-pct').textContent=Math.round(t.pcu);
+}
+
+// ═══════════════════════════════════════════════════
+// HISTORY
+// ═══════════════════════════════════════════════════
+function saveHistory(r,t){
+  const entry={time:Date.now(),moto:r.soXeMay||0,car:r.soOTo||0,bus:r.soXeLon||0,pcu:Math.round(t.pcu),ds:t.ds,status:t.status,road:t.road,note:r.nhanXet||''};
+  history.unshift(entry);if(history.length>50)history.pop();
+  localStorage.setItem('tai_hist',JSON.stringify(history));
+  renderHistory();
+}
+
+function renderHistory(){
+  const list=document.getElementById('hist-list');
+  const empty=document.getElementById('hist-empty');
+  if(!history.length){if(empty)empty.style.display='flex';return;}
+  if(empty)empty.style.display='none';
+  const col={gn:'#34c759',yw:'#ff9500',og:'#ff6b00',rd:'#ff3b30'};
+  const lbl={gn:'Thông thoáng',yw:'Đông đúc',og:'Ùn tắc',rd:'Ùn tắc nặng'};
+  list.querySelectorAll('.hist-item').forEach(e=>e.remove());
+  history.forEach(h=>{
+    const d=new Date(h.time);
+    const el=document.createElement('div');el.className='hist-item';
+    el.innerHTML=`<div class="hi-left"><div class="hi-loc">📍 Biên Hòa · Cấp ${h.road||'B'}</div>
+    <div class="hi-sub">🛵 ${h.moto} &nbsp;🚗 ${h.car} &nbsp;🚌 ${h.bus} &nbsp;⚡ ${h.pcu} PCU</div>
+    <div class="hi-badge ${h.status}">${lbl[h.status]||''}</div></div>
+    <div><div class="hi-score" style="color:${col[h.status]}">${h.ds}%</div>
+    <div class="hi-time">${d.toLocaleDateString('vi-VN')}<br>${d.toLocaleTimeString('vi-VN')}</div></div>`;
     list.appendChild(el);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// DRAW YOLO BOXES
+// ═══════════════════════════════════════════════════
+function drawYOLO(boxes,r,t,imgW,imgH){
+  const ov=document.getElementById('ov');
+  const ctx=ov.getContext('2d');
+  ctx.clearRect(0,0,ov.width,ov.height);
+  const sx=ov.width/imgW,sy=ov.height/imgH;
+  const clr={[CLS_MOTO]:'#007aff',[CLS_CAR]:'#ff9500',[CLS_BUS]:'#ff6b00',[CLS_TRUCK]:'#ff3b30'};
+  const nm={[CLS_MOTO]:'Xe máy',[CLS_CAR]:'Ô tô',[CLS_BUS]:'Xe lớn',[CLS_TRUCK]:'Xe tải'};
+  boxes.forEach(b=>{
+    const x=b.x1*sx,y=b.y1*sy,w=(b.x2-b.x1)*sx,h=(b.y2-b.y1)*sy;
+    ctx.strokeStyle=clr[b.cls]||'#fff';ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
+    ctx.fillStyle=clr[b.cls]||'#fff';ctx.globalAlpha=0.85;
+    const lw=ctx.measureText(nm[b.cls]||'').width+10;
+    ctx.fillRect(x,y-16,lw,16);ctx.globalAlpha=1;
+    ctx.fillStyle='#fff';ctx.font='bold 10px sans-serif';
+    ctx.fillText(nm[b.cls]||'',x+5,y-4);
   });
 }
 
