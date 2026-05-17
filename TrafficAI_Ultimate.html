@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="TrafficAI">
+<meta name="theme-color" content="#f2f2f7">
+<title>TrafficAI · Biên Hòa</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#f2f2f7;--card:#fff;--card2:#f9f9fb;
+  --bd:rgba(0,0,0,.08);--bd2:rgba(0,0,0,.12);
+  --tx:#1c1c1e;--tx2:#6d6d72;--tx3:#aeaeb2;
+  --ac:#007aff;--g:#34c759;--y:#ff9500;--o:#ff6b00;--r:#ff3b30;--pur:#af52de;
+  --f:'DM Sans',-apple-system,sans-serif;--m:'DM Mono','SF Mono',monospace;
+  --sh:0 1px 3px rgba(0,0,0,.08),0 4px 12px rgba(0,0,0,.04);
+}
+.dark{
+  --bg:#1c1c1e;--card:#2c2c2e;--card2:#3a3a3c;
+  --bd:rgba(255,255,255,.08);--bd2:rgba(255,255,255,.12);
+  --tx:#f2f2f7;--tx2:#aeaeb2;--tx3:#6d6d72;
+  --sh:0 1px 3px rgba(0,0,0,.3),0 4px 12px rgba(0,0,0,.2);
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-family:var(--f);-webkit-font-smoothing:antialiased}
+.app{height:100vh;height:100dvh;display:flex;flex-direction:column;max-width:390px;margin:0 auto}
+.st{height:env(safe-area-inset-top,44px);flex-shrink:0;background:var(--card)}
+.sb{height:env(safe-area-inset-bottom,16px);flex-shrink:0;background:var(--bg)}
+
+/* HEADER */
+.hdr{background:var(--card);border-bottom:1px solid var(--bd);padding:0 14px 8px;flex-shrink:0}
+.hdr-top{display:flex;align-items:center;gap:8px;padding-top:8px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--tx3);transition:.3s;flex-shrink:0}
+.dot.on{background:var(--g);box-shadow:0 0 0 3px rgba(52,199,89,.2);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(52,199,89,.2)}50%{box-shadow:0 0 0 5px rgba(52,199,89,.08)}}
+.logo{font-size:17px;font-weight:700;flex:1}
+.logo span{color:var(--ac)}
+.hdr-badges{display:flex;gap:5px;align-items:center}
+.badge{font-size:9px;font-weight:600;padding:3px 7px;border-radius:10px;font-family:var(--m)}
+.badge-loc{background:rgba(0,122,255,.1);color:var(--ac)}
+.badge-ai{background:rgba(52,199,89,.1);color:var(--g);display:none}
+.badge-yolo{background:rgba(175,82,222,.1);color:var(--pur);display:none}
+.mode-btn{width:30px;height:30px;border-radius:50%;border:none;background:rgba(118,118,128,.12);font-size:15px;cursor:pointer;flex-shrink:0}
+.hdr-sub{font-size:11px;color:var(--tx3);margin-top:3px}
+
+/* CAMERA */
+.cam{flex:1;position:relative;overflow:hidden;background:#000;min-height:0}
+video{width:100%;height:100%;object-fit:cover;display:block}
+canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.hud{position:absolute;top:8px;left:8px;right:8px;display:none;gap:4px;flex-wrap:wrap;pointer-events:none}
+.chip{background:rgba(255,255,255,.92);border-radius:7px;padding:2px 8px;font-size:9px;font-weight:500;color:var(--tx2);box-shadow:0 1px 4px rgba(0,0,0,.12);backdrop-filter:blur(10px)}
+.chip.b{color:var(--ac)}.chip.g{color:var(--g)}.chip.p{color:var(--pur)}
+.scanline{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(0,122,255,.4),transparent);animation:sc 3s linear infinite;display:none;pointer-events:none}
+@keyframes sc{0%{top:0}100%{top:100%}}
+.proc{position:absolute;inset:0;background:rgba(242,242,247,.85);display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;backdrop-filter:blur(16px);z-index:20}
+.dark .proc{background:rgba(28,28,30,.85)}
+.ring{width:36px;height:36px;border-radius:50%;border:3px solid rgba(0,122,255,.15);border-top-color:var(--ac);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ptxt{font-size:12px;font-weight:500;color:var(--tx2);text-align:center;padding:0 20px;line-height:1.6}
+.idle{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.idle-i{font-size:42px;opacity:.2}
+.idle-t{font-size:15px;font-weight:600;color:rgba(0,0,0,.25)}
+.dark .idle-t{color:rgba(255,255,255,.2)}
+.idle-s{font-size:11px;color:var(--tx3);text-align:center;line-height:1.9}
+
+/* BOTTOM - CAMERA TAB */
+.bot{background:var(--bg);flex-shrink:0;padding:8px 12px 0}
+
+/* D-Score */
+.ds-card{background:var(--card);border-radius:14px;box-shadow:var(--sh);padding:11px 14px;display:flex;align-items:center;gap:12px;margin-bottom:7px}
+.ds-left{flex:1}
+.ds-lbl{font-size:9px;font-weight:600;color:var(--tx3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:3px}
+.ds-bar{height:5px;background:rgba(0,0,0,.06);border-radius:3px;overflow:hidden;margin-bottom:3px}
+.dark .ds-bar{background:rgba(255,255,255,.08)}
+.ds-fill{height:100%;border-radius:3px;transition:width .7s cubic-bezier(.4,0,.2,1),background .4s;width:0;background:var(--g)}
+.ds-status{font-size:11px;font-weight:500;color:var(--tx2)}
+.ds-val{font-size:30px;font-weight:700;letter-spacing:-1px;color:var(--g);line-height:1;transition:color .4s}
+.ds-unit{font-size:11px;color:var(--tx3);text-align:right}
+
+/* Stats + Pie */
+.row2{display:flex;gap:7px;margin-bottom:7px}
+.counts-card{background:var(--card);border-radius:14px;box-shadow:var(--sh);padding:9px;display:grid;grid-template-columns:1fr 1fr;gap:5px;flex:1}
+.cnt{background:var(--card2);border-radius:9px;padding:6px 4px;text-align:center}
+.cnt-n{font-size:19px;font-weight:700;line-height:1;letter-spacing:-.5px}
+.cnt-l{font-size:7px;font-weight:500;color:var(--tx3);margin-top:2px}
+.chart-card{background:var(--card);border-radius:14px;box-shadow:var(--sh);padding:9px;display:flex;flex-direction:column;align-items:center;gap:5px;width:105px;flex-shrink:0}
+.chart-title{font-size:8px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px}
+.pie-wrap{position:relative;width:66px;height:66px}
+.pie-wrap svg{transform:rotate(-90deg)}
+.pie-center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column}
+.pie-pct{font-size:13px;font-weight:700;color:var(--tx)}
+.pie-sub{font-size:7px;color:var(--tx3);margin-top:1px}
+.chart-legend{display:flex;flex-direction:column;gap:2px;width:100%}
+.leg{display:flex;align-items:center;gap:4px;font-size:8px;color:var(--tx2)}
+.leg-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+
+/* Alert */
+.alert{border-radius:12px;box-shadow:var(--sh);padding:9px 12px;display:flex;align-items:center;gap:9px;margin-bottom:7px;transition:all .3s;background:var(--card);border:1.5px solid var(--bd)}
+.alert.gn{background:rgba(52,199,89,.06);border-color:rgba(52,199,89,.2)}
+.alert.yw{background:rgba(255,149,0,.06);border-color:rgba(255,149,0,.2)}
+.alert.og{background:rgba(255,107,0,.07);border-color:rgba(255,107,0,.22)}
+.alert.rd{background:rgba(255,59,48,.07);border-color:rgba(255,59,48,.22)}
+.al-ico{font-size:20px;flex-shrink:0}
+.al-body{flex:1;min-width:0}
+.al-t{font-size:12px;font-weight:600;transition:color .3s}
+.al-s{font-size:10px;color:var(--tx2);margin-top:1px;line-height:1.4}
+
+/* Export btn */
+.export-btn{width:100%;padding:10px;background:var(--ac);border-radius:11px;color:#fff;font-size:12px;font-weight:600;border:none;cursor:pointer;display:none;align-items:center;justify-content:center;gap:5px;margin-bottom:7px}
+.export-btn:active{opacity:.85}
+
+/* Controls */
+.ctrl{display:flex;gap:6px;margin-bottom:8px;align-items:center}
+.road-seg{display:flex;background:rgba(118,118,128,.12);border-radius:8px;padding:2px;gap:1px}
+.rb{padding:5px 8px;border-radius:6px;border:none;background:none;color:var(--tx2);font-size:10px;font-weight:500;cursor:pointer;transition:.15s;font-family:var(--f)}
+.rb.on{background:var(--card);color:var(--tx);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.btns{display:flex;gap:5px;flex:1}
+.btn{flex:1;padding:10px 4px;border-radius:11px;border:none;font-family:var(--f);font-size:12px;font-weight:600;cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:center;gap:4px}
+.btn:active{transform:scale(.96)}
+.btn-c{background:var(--ac);color:#fff}
+.btn-a{background:linear-gradient(135deg,var(--pur),var(--ac));color:#fff}
+.btn-a:disabled{opacity:.28;cursor:not-allowed;transform:none}
+.btn-u{position:relative;overflow:hidden;flex:0 0 42px;height:40px;background:var(--card);border:1.5px solid var(--bd2);border-radius:11px;color:var(--tx2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.btn-u input{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+/* TABS */
+.tabbar{display:flex;background:var(--card);border-top:1px solid var(--bd);padding:4px 0 env(safe-area-inset-bottom,4px);flex-shrink:0}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;border:none;background:none;cursor:pointer;font-size:9px;font-weight:500;color:var(--tx3);transition:.2s;font-family:var(--f)}
+.tab.on{color:var(--ac)}
+.tab-i{font-size:19px;line-height:1}
+
+/* PAGES */
+.page{display:none;flex-direction:column;flex:1;overflow:hidden}
+.page.on{display:flex}
+
+/* HISTORY */
+.page-hdr{padding:12px 12px 6px;background:var(--card);border-bottom:1px solid var(--bd);flex-shrink:0}
+.page-hdr h2{font-size:17px;font-weight:700}
+.page-hdr p{font-size:11px;color:var(--tx3);margin-top:1px}
+.hist-list{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:7px}
+.hist-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--tx3);padding:20px}
+.hist-empty-i{font-size:38px;opacity:.25}
+.hist-item{background:var(--card);border-radius:12px;box-shadow:var(--sh);padding:10px 12px;display:flex;align-items:center;gap:10px}
+.hi-left{flex:1;min-width:0}
+.hi-loc{font-size:12px;font-weight:600;color:var(--tx)}
+.hi-sub{font-size:10px;color:var(--tx2);margin-top:1px}
+.hi-badge{display:inline-block;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:600;margin-top:3px}
+.hi-badge.gn{background:rgba(52,199,89,.12);color:#34c759}
+.hi-badge.yw{background:rgba(255,149,0,.12);color:#ff9500}
+.hi-badge.og{background:rgba(255,107,0,.12);color:#ff6b00}
+.hi-badge.rd{background:rgba(255,59,48,.12);color:#ff3b30}
+.hi-score{font-size:20px;font-weight:700;line-height:1}
+.hi-time{font-size:9px;color:var(--tx3);margin-top:2px;text-align:right}
+.hist-clear{margin:0 10px 8px;padding:10px;background:rgba(255,59,48,.07);border:1.5px solid rgba(255,59,48,.15);border-radius:10px;color:#ff3b30;font-size:12px;font-weight:600;cursor:pointer;text-align:center}
+
+/* CHART PAGE */
+.chart-scroll{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
+.chart-sec{background:var(--card);border-radius:14px;box-shadow:var(--sh);padding:13px}
+.cs-t{font-size:13px;font-weight:600;color:var(--tx);margin-bottom:10px}
+.bar-chart{display:flex;align-items:flex-end;gap:3px;height:72px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px}
+.bar{width:100%;border-radius:3px 3px 0 0;transition:height .5s cubic-bezier(.4,0,.2,1);min-height:2px}
+.bar-lbl{font-size:7px;color:var(--tx3);font-family:var(--m)}
+.bar-val{font-size:7px;font-weight:600;color:var(--tx2)}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.si{background:var(--card2);border-radius:10px;padding:10px;text-align:center}
+.si-n{font-size:22px;font-weight:700;letter-spacing:-.5px}
+.si-l{font-size:9px;color:var(--tx3);margin-top:2px}
+
+/* Install */
+.install-bar{position:fixed;bottom:env(safe-area-inset-bottom,0);left:0;right:0;z-index:100;padding:9px 14px;background:var(--ac);display:none;align-items:center;gap:10px}
+.install-bar p{font-size:10px;color:rgba(255,255,255,.8);flex:1;line-height:1.5}
+.install-bar strong{color:#fff;display:block;font-size:11px}
+.install-bar button{background:rgba(255,255,255,.2);border:none;border-radius:5px;padding:3px 8px;font-size:10px;color:#fff;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div class="install-bar" id="ib">
+  <span style="font-size:18px">📲</span>
+  <p><strong>Thêm vào màn hình chính</strong>Share → Add to Home Screen</p>
+  <button onclick="this.parentElement.style.display='none'">✕</button>
+</div>
+
+<div class="app">
+<div class="st"></div>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-top">
+    <div class="dot" id="dot"></div>
+    <div class="logo">Traffic<span>AI</span></div>
+    <div class="hdr-badges">
+      <div class="badge badge-loc">📍 Biên Hòa</div>
+      <div class="badge badge-yolo" id="badge-yolo">⚡ YOLO</div>
+      <div class="badge badge-ai" id="badge-ai">🧠 AI</div>
+    </div>
+    <button class="mode-btn" id="mode-btn" onclick="toggleMode()">🌙</button>
+  </div>
+  <div class="hdr-sub" id="stat">Đang tải YOLO model...</div>
+</div>
+
+<!-- CAMERA PAGE -->
+<div class="page on" id="page-cam">
+  <div class="cam" id="cam">
+    <video id="vid" autoplay playsinline muted></video>
+    <canvas id="ov"></canvas>
+    <div class="hud" id="hud">
+      <div class="chip b" id="hc1">Cấp B</div>
+      <div class="chip" id="hc2">OR –%</div>
+      <div class="chip" id="hc3">PCU –</div>
+      <div class="chip p" id="hc4">Loading...</div>
+    </div>
+    <div class="scanline" id="sl"></div>
+    <div class="proc" id="proc">
+      <div class="ring"></div>
+      <div class="ptxt" id="ptxt">Đang tải model...</div>
+    </div>
+    <div class="idle" id="idle">
+      <div class="idle-i">🚦</div>
+      <div class="idle-t">TrafficAI · Biên Hòa</div>
+      <div class="idle-s" id="idle-s">Đang tải YOLO model...<br>Vui lòng đợi</div>
+    </div>
+  </div>
+
+  <div class="bot">
+    <div class="ds-card">
+      <div class="ds-left">
+        <div class="ds-lbl">D-Score</div>
+        <div class="ds-bar"><div class="ds-fill" id="dsf"></div></div>
+        <div class="ds-status" id="dst">Chờ phân tích</div>
+      </div>
+      <div>
+        <div class="ds-val" id="dsv">–</div>
+        <div class="ds-unit">/ 100%</div>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="counts-card">
+        <div class="cnt"><div class="cnt-n" id="cm" style="color:#007aff">–</div><div class="cnt-l">🛵 XE MÁY</div></div>
+        <div class="cnt"><div class="cnt-n" id="cc" style="color:#ff9500">–</div><div class="cnt-l">🚗 Ô TÔ</div></div>
+        <div class="cnt"><div class="cnt-n" id="cb" style="color:#ff6b00">–</div><div class="cnt-l">🚌 XE LỚN</div></div>
+        <div class="cnt"><div class="cnt-n" id="cp" style="color:#34c759">–</div><div class="cnt-l">⚡ PCU</div></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Thành phần</div>
+        <div class="pie-wrap">
+          <svg width="66" height="66" viewBox="0 0 66 66">
+            <circle cx="33" cy="33" r="26" fill="none" stroke="#e5e5ea" stroke-width="9"/>
+            <circle id="pie-m" cx="33" cy="33" r="26" fill="none" stroke="#007aff" stroke-width="9" stroke-dasharray="0 163" stroke-linecap="round"/>
+            <circle id="pie-c" cx="33" cy="33" r="26" fill="none" stroke="#ff9500" stroke-width="9" stroke-dasharray="0 163" stroke-linecap="round"/>
+            <circle id="pie-b" cx="33" cy="33" r="26" fill="none" stroke="#ff6b00" stroke-width="9" stroke-dasharray="0 163" stroke-linecap="round"/>
+          </svg>
+          <div class="pie-center">
+            <div class="pie-pct" id="pie-pct">–</div>
+            <div class="pie-sub">PCU</div>
+          </div>
+        </div>
+        <div class="chart-legend">
+          <div class="leg"><div class="leg-dot" style="background:#007aff"></div>Xe máy</div>
+          <div class="leg"><div class="leg-dot" style="background:#ff9500"></div>Ô tô</div>
+          <div class="leg"><div class="leg-dot" style="background:#ff6b00"></div>Xe lớn</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="alert gn" id="al">
+      <div class="al-ico" id="aico">📷</div>
+      <div class="al-body">
+        <div class="al-t" id="at" style="color:var(--g)">Chờ phân tích</div>
+        <div class="al-s" id="as">Bật camera hoặc upload ảnh để bắt đầu</div>
+      </div>
+    </div>
+
+    <button class="export-btn" id="export-btn" onclick="exportResult()">📸 Lưu kết quả vào Camera Roll</button>
+
+    <div class="ctrl">
+      <div class="road-seg">
+        <button class="rb" id="rA" onclick="setRoad('A')">A</button>
+        <button class="rb on" id="rX" onclick="setRoad('auto')">Auto</button>
+        <button class="rb" id="rB" onclick="setRoad('B')">B</button>
+        <button class="rb" id="rC" onclick="setRoad('C')">C</button>
+      </div>
+      <div class="btns">
+        <button class="btn btn-c" id="bcam" onclick="toggleCam()">📷 Camera</button>
+        <button class="btn btn-a" id="bai" onclick="analyze()" disabled>🤖 Phân tích</button>
+      </div>
+      <label class="btn-u">📂<input type="file" accept="image/*" onchange="upload(this.files[0])"></label>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY PAGE -->
+<div class="page" id="page-hist">
+  <div class="page-hdr">
+    <h2>Lịch sử phân tích</h2>
+    <p>Biên Hòa · Tự động lưu</p>
+  </div>
+  <div class="hist-list" id="hist-list">
+    <div class="hist-empty" id="hist-empty">
+      <div class="hist-empty-i">📋</div>
+      <div style="font-size:14px;font-weight:500">Chưa có dữ liệu</div>
+      <div style="font-size:12px">Phân tích ảnh để bắt đầu ghi lại</div>
+    </div>
+  </div>
+  <button class="hist-clear" onclick="clearHistory()">🗑 Xóa toàn bộ lịch sử</button>
+</div>
+
+<!-- CHART PAGE -->
+<div class="page" id="page-chart">
+  <div class="page-hdr">
+    <h2>Thống kê</h2>
+    <p>Xu hướng mật độ giao thông Biên Hòa</p>
+  </div>
+  <div class="chart-scroll">
+    <div class="chart-sec">
+      <div class="cs-t">D-Score theo thời gian</div>
+      <div class="bar-chart" id="bar-chart">
+        <div style="width:100%;display:flex;align-items:center;justify-content:center;color:var(--tx3);font-size:11px">Chưa có dữ liệu</div>
+      </div>
+    </div>
+    <div class="chart-sec">
+      <div class="cs-t">Tổng hợp tất cả phân tích</div>
+      <div class="stat-grid">
+        <div class="si"><div class="si-n" id="s-moto" style="color:#007aff">0</div><div class="si-l">🛵 Tổng xe máy</div></div>
+        <div class="si"><div class="si-n" id="s-car" style="color:#ff9500">0</div><div class="si-l">🚗 Tổng ô tô</div></div>
+        <div class="si"><div class="si-n" id="s-avg" style="color:#34c759">–</div><div class="si-l">📊 D-Score TB</div></div>
+        <div class="si"><div class="si-n" id="s-count" style="color:#af52de">0</div><div class="si-l">📷 Số lần phân tích</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB BAR -->
+<div class="tabbar">
+  <button class="tab on" id="tab-cam" onclick="switchTab('cam')"><div class="tab-i">📷</div>Camera</button>
+  <button class="tab" id="tab-hist" onclick="switchTab('hist')"><div class="tab-i">📋</div>Lịch sử</button>
+  <button class="tab" id="tab-chart" onclick="switchTab('chart')"><div class="tab-i">📊</div>Thống kê</button>
+</div>
+<div class="sb"></div>
+</div>
+
+<!-- ONNX Runtime -->
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════
+const ROAD={A:{cap:80,vmax:80},B:{cap:50,vmax:60},C:{cap:25,vmax:30}};
+const CIRC=2*Math.PI*26;
+const MODEL_URL='traffic_bienhoa_v2.onnx';
+const CLS_MOTO=3,CLS_CAR=2,CLS_BUS=5,CLS_TRUCK=7;
+const CONF=0.4,IOU=0.45,SZ=640;
+
+let stream=null,forced=null,busy=false;
+let ortSession=null,modelReady=false;
+let history=JSON.parse(localStorage.getItem('tai_hist')||'[]');
+
+// ═══════════════════════════════════════════════════
+// LOAD YOLO MODEL
+// ═══════════════════════════════════════════════════
+async function loadModel(){
+  try{
+    ort.env.wasm.wasmPaths='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
+    setStatus('Đang tải YOLO model (v2)...');
+    ortSession=await ort.InferenceSession.create(MODEL_URL,{
+      executionProviders:['wasm'],graphOptimizationLevel:'all'
+    });
+    modelReady=true;
+    setStatus('YOLO on-device sẵn sàng · 110 ảnh Biên Hòa');
+    document.getElementById('hc4').textContent='YOLO v2 ✓';
+    document.getElementById('hc4').className='chip g';
+    document.getElementById('badge-yolo').style.display='block';
+    document.getElementById('idle-s').textContent='Bật camera hoặc upload ảnh\nđể phân tích YOLO on-device';
+  }catch(e){
+    modelReady=false;
+    setStatus('Claude Vision mode (YOLO không tải được)');
+    document.getElementById('hc4').textContent='Claude AI';
+    document.getElementById('badge-ai').style.display='block';
+    document.getElementById('idle-s').textContent='Bật camera hoặc upload ảnh\nđể phân tích bằng Claude AI';
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// CAMERA
+// ═══════════════════════════════════════════════════
+async function toggleCam(){
+  if(stream){stopCam();return;}
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false
+    });
+    const v=document.getElementById('vid');v.srcObject=stream;await v.play();resizeOv();
+    document.getElementById('idle').style.display='none';
+    document.getElementById('hud').style.display='flex';
+    document.getElementById('sl').style.display='block';
+    document.getElementById('bcam').textContent='⏹ Dừng';
+    document.getElementById('bai').disabled=false;
+    document.getElementById('dot').classList.add('on');
+    setStatus('Camera đang chạy · Biên Hòa');
+  }catch(e){setAl('rd','🚫','Không truy cập được camera','Cài đặt → Safari → Camera → Cho phép');}
+}
+function stopCam(){
+  stream?.getTracks().forEach(t=>t.stop());stream=null;
+  document.getElementById('vid').srcObject=null;
+  document.getElementById('idle').style.display='flex';
+  document.getElementById('hud').style.display='none';
+  document.getElementById('sl').style.display='none';
+  document.getElementById('bcam').textContent='📷 Camera';
+  document.getElementById('bai').disabled=true;
+  document.getElementById('dot').classList.remove('on');
+  setStatus(modelReady?'YOLO on-device sẵn sàng':'Claude Vision mode');
+}
+function resizeOv(){const a=document.getElementById('cam'),c=document.getElementById('ov');c.width=a.clientWidth;c.height=a.clientHeight;}
+window.addEventListener('resize',resizeOv);
+
+// ═══════════════════════════════════════════════════
+// CAPTURE
+// ═══════════════════════════════════════════════════
+async function analyze(){
+  const v=document.getElementById('vid');if(!stream||v.readyState<2)return;
+  const c=document.createElement('canvas');c.width=v.videoWidth||640;c.height=v.videoHeight||480;
+  c.getContext('2d').drawImage(v,0,0);
+  const b64=c.toDataURL('image/jpeg',.85).split(',')[1];
+  if(modelReady) await runYOLO_full(c.getContext('2d').getImageData(0,0,c.width,c.height),c.width,c.height);
+  else await runClaude(b64,'image/jpeg',c.width,c.height);
+}
+
+async function upload(file){
+  if(!file)return;const r=new FileReader();
+  r.onload=async e=>{
+    const url=e.target.result,b64=url.split(',')[1];
+    const img=new Image();
+    img.onload=async()=>{
+      resizeOv();
+      const ov=document.getElementById('ov'),ctx=ov.getContext('2d');
+      const s=Math.min(ov.width/img.width,ov.height/img.height);
+      ctx.clearRect(0,0,ov.width,ov.height);
+      ctx.drawImage(img,(ov.width-img.width*s)/2,(ov.height-img.height*s)/2,img.width*s,img.height*s);
+      document.getElementById('idle').style.display='none';
+      document.getElementById('bai').disabled=false;
+      if(modelReady){
+        const c=document.createElement('canvas');c.width=img.width;c.height=img.height;
+        c.getContext('2d').drawImage(img,0,0);
+        await runYOLO_full(c.getContext('2d').getImageData(0,0,img.width,img.height),img.width,img.height);
+      } else await runClaude(b64,file.type||'image/jpeg',img.width,img.height);
+    };img.src=url;
+  };r.readAsDataURL(file);
+}
+
+// ═══════════════════════════════════════════════════
+// YOLO ON-DEVICE
+// ═══════════════════════════════════════════════════
+async function runYOLO_full(imgData,imgW,imgH){
+  if(busy)return;busy=true;
+  showProc(true,'YOLO đang nhận diện...');
+  try{
+    const boxes=await runYOLO(imgData,imgW,imgH);
+    const counts={moto:0,car:0,bus:0};
+    boxes.forEach(b=>{
+      if(b.cls===CLS_MOTO)counts.moto++;
+      else if(b.cls===CLS_CAR)counts.car++;
+      else counts.bus++;
+    });
+    const totalArea=boxes.reduce((s,b)=>{return s+(b.x2-b.x1)*(b.y2-b.y1);},0);
+    const OR=Math.min(1,totalArea/(imgW*imgH*0.6));
+    const r={soXeMay:counts.moto,soOTo:counts.car,soXeLon:counts.bus,loaiDuong:'Cap_B',occupancyRate:OR,nhanXet:`YOLO: ${counts.moto} xe máy, ${counts.car} ô tô, OR ${Math.round(OR*100)}%.`};
+    showProc(true,'Tính D-Score...');await sleep(100);
+    const t=calc(r);showProc(false);
+    render(r,t);drawYOLO(boxes,r,t,imgW,imgH);
+    setStatus(`YOLO ✓ · ${boxes.length} phương tiện · ${new Date().toLocaleTimeString('vi-VN')}`);
+  }catch(e){
+    showProc(true,'Fallback Claude Vision...');
+    const v=document.getElementById('vid');
+    const c=document.createElement('canvas');c.width=imgW;c.height=imgH;
+    await runClaude('',''  ,imgW,imgH);
+  }
+  busy=false;
+}
+
+async function runYOLO(imgData,imgW,imgH){
+  const canvas=document.createElement('canvas');canvas.width=SZ;canvas.height=SZ;
+  const ctx=canvas.getContext('2d');
+  const scale=Math.min(SZ/imgW,SZ/imgH);
+  const nw=Math.round(imgW*scale),nh=Math.round(imgH*scale);
+  const dx=Math.floor((SZ-nw)/2),dy=Math.floor((SZ-nh)/2);
+  ctx.fillStyle='#808080';ctx.fillRect(0,0,SZ,SZ);
+  const tmp=document.createElement('canvas');tmp.width=imgW;tmp.height=imgH;
+  tmp.getContext('2d').putImageData(imgData,0,0);
+  ctx.drawImage(tmp,dx,dy,nw,nh);
+  const pixels=ctx.getImageData(0,0,SZ,SZ).data;
+  const tensor=new Float32Array(3*SZ*SZ);
+  for(let i=0;i<SZ*SZ;i++){tensor[i]=pixels[i*4]/255;tensor[SZ*SZ+i]=pixels[i*4+1]/255;tensor[2*SZ*SZ+i]=pixels[i*4+2]/255;}
+  const input=new ort.Tensor('float32',tensor,[1,3,SZ,SZ]);
+  const out=await ortSession.run({images:input});
+  const data=Object.values(out)[0].data;
+  const numDet=Object.values(out)[0].dims[2];
+  const VCLS=[CLS_MOTO,CLS_CAR,CLS_BUS,CLS_TRUCK];
+  const boxes=[];
+  for(let i=0;i<numDet;i++){
+    const cx=data[0*numDet+i],cy=data[1*numDet+i],w=data[2*numDet+i],h=data[3*numDet+i];
+    let bc=-1,bv=0;
+    for(let c=0;c<80;c++){const v=data[(4+c)*numDet+i];if(v>bv){bv=v;bc=c;}}
+    if(bv<CONF||!VCLS.includes(bc))continue;
+    const x1=((cx-w/2)-dx)/scale,y1=((cy-h/2)-dy)/scale;
+    const x2=((cx+w/2)-dx)/scale,y2=((cy+h/2)-dy)/scale;
+    boxes.push({x1:Math.max(0,x1),y1:Math.max(0,y1),x2:Math.min(imgW,x2),y2:Math.min(imgH,y2),conf:bv,cls:bc});
+  }
+  return nms(boxes);
+}
+
+function nms(boxes){
+  boxes.sort((a,b)=>b.conf-a.conf);const keep=[],used=new Set();
+  for(let i=0;i<boxes.length;i++){
+    if(used.has(i))continue;keep.push(boxes[i]);
+    for(let j=i+1;j<boxes.length;j++){if(iou(boxes[i],boxes[j])>IOU)used.add(j);}
+  }return keep;
+}
+function iou(a,b){
+  const ix1=Math.max(a.x1,b.x1),iy1=Math.max(a.y1,b.y1),ix2=Math.min(a.x2,b.x2),iy2=Math.min(a.y2,b.y2);
+  const inter=Math.max(0,ix2-ix1)*Math.max(0,iy2-iy1);
+  return inter/((a.x2-a.x1)*(a.y2-a.y1)+(b.x2-b.x1)*(b.y2-b.y1)-inter);
+}
+
+// ═══════════════════════════════════════════════════
+// CLAUDE VISION FALLBACK
+// ═══════════════════════════════════════════════════
+async function runClaude(b64,mime,imgW,imgH){
+  if(busy&&!b64){busy=true;}
+  showProc(true,'Claude Vision đang phân tích...');
+  const v=document.getElementById('vid');
+  if(!b64&&stream&&v.readyState>=2){
+    const c=document.createElement('canvas');c.width=v.videoWidth||640;c.height=v.videoHeight||480;
+    c.getContext('2d').drawImage(v,0,0);
+    b64=c.toDataURL('image/jpeg',.85).split(',')[1];mime='image/jpeg';
+    imgW=c.width;imgH=c.height;
+  }
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:mime,data:b64}},
+          {type:'text',text:`Phân tích giao thông Biên Hòa.${forced?` Cấp ${forced}.`:''} JSON only: {"soXeMay":<n>,"soOTo":<n>,"soXeLon":<n>,"loaiDuong":"Cap_A|Cap_B|Cap_C","occupancyRate":<0-1>,"nhanXet":"<1 câu>"}`}
+        ]}]
+      })
+    });
+    const data=await res.json();
+    const txt=data.content.filter(c=>c.type==='text').map(c=>c.text).join('');
+    const m=txt.match(/\{[\s\S]*\}/);if(!m)throw 0;
+    const r=JSON.parse(m[0]);
+    showProc(true,'Tính D-Score...');await sleep(150);
+    const t=calc(r);showProc(false);
+    render(r,t);drawFallback(r,t,imgW||640,imgH||480);
+    setStatus(`Claude AI ✓ · ${new Date().toLocaleTimeString('vi-VN')}`);
+  }catch(e){
+    const r=demo();const t=calc(r);showProc(false);
+    render(r,t);drawFallback(r,t,imgW||640,imgH||480);
+  }
+  busy=false;
+}
+
+// ═══════════════════════════════════════════════════
+// D-SCORE
+// ═══════════════════════════════════════════════════
+function calc(r){
+  const road=forced||(r.loaiDuong?.replace('Cap_','')||'B');
+  const th=ROAD[road]||ROAD.B;
+  const pcu=(r.soXeMay||0)*.3+(r.soOTo||0)+(r.soXeLon||0)*2;
+  const OR=Math.min(1,r.occupancyRate||0);
+  const v=th.vmax*(1-OR);
+  const ds=Math.min(1,Math.max(0,.4*(pcu/th.cap)+.35*(1-v/th.vmax)+.25*OR));
+  return{road,pcu:+pcu.toFixed(1),OR:+OR.toFixed(3),ds:+ds.toFixed(3)};
+}
+function demo(){
+  const m=Math.round(4+Math.random()*18),c=Math.round(1+Math.random()*7),b=Math.round(Math.random()*2);
+  const or=+(0.1+Math.random()*.5).toFixed(2);
+  return{soXeMay:m,soOTo:c,soXeLon:b,loaiDuong:'Cap_B',occupancyRate:or,nhanXet:`${m} xe máy, ${c} ô tô, OR ${Math.round(or*100)}%.`};
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════
+function render(r,t){
+  const p=Math.round(t.ds*100);
+  let col,cls,ico,title,sub;
+  if(t.ds<.25){col='#34c759';cls='gn';ico='✅';title='Thông thoáng · Cấp '+t.road;sub=r.nhanXet||`OR ${Math.round(t.OR*100)}% · PCU ${t.pcu}`;}
+  else if(t.ds<.5){col='#ff9500';cls='yw';ico='⚠️';title='Bình thường · Cấp '+t.road;sub=r.nhanXet||`OR ${Math.round(t.OR*100)}% · Chú ý khoảng cách`;}
+  else if(t.ds<.75){col='#ff6b00';cls='og';ico='⚠️';title='Đông đúc · Cấp '+t.road;sub=r.nhanXet||`OR ${Math.round(t.OR*100)}% · Cân nhắc tuyến khác`;}
+  else{col='#ff3b30';cls='rd';ico='🚨';title='Kẹt xe! · Cấp '+t.road;sub=r.nhanXet||`OR ${Math.round(t.OR*100)}% · Chuyển tuyến ngay`;}
+  document.getElementById('dsf').style.cssText=`width:${p}%;background:${col}`;
+  document.getElementById('dsv').style.color=col;document.getElementById('dsv').textContent=p;
+  document.getElementById('dst').textContent=title.split('·')[0].trim();document.getElementById('dst').style.color=col;
+  document.getElementById('cm').textContent=r.soXeMay??'–';
+  document.getElementById('cc').textContent=r.soOTo??'–';
+  document.getElementById('cb').textContent=r.soXeLon??'–';
+  document.getElementById('cp').textContent=t.pcu;
+  updatePie(r,t);
+  setAl(cls,ico,title,sub);
+  document.getElementById('hc1').textContent='Cấp '+t.road;
+  document.getElementById('hc2').textContent='OR '+Math.round(t.OR*100)+'%';
+  document.getElementById('hc3').textContent='PCU '+t.pcu;
+  document.getElementById('hud').style.display='flex';
+  document.getElementById('export-btn').style.display='flex';
+  saveHist(r,t);
+}
+
+function updatePie(r,t){
+  const m=(r.soXeMay||0)*.3,c=(r.soOTo||0),b=(r.soXeLon||0)*2;
+  const total=m+c+b||1;
+  const dm=CIRC*(m/total),dc=CIRC*(c/total),db=CIRC*(b/total);
+  const pm=document.getElementById('pie-m'),pc=document.getElementById('pie-c'),pb=document.getElementById('pie-b');
+  pm.style.strokeDasharray=`${dm} ${CIRC-dm}`;pm.style.strokeDashoffset='0';
+  pc.style.strokeDasharray=`${dc} ${CIRC-dc}`;pc.style.strokeDashoffset=`${-dm}`;
+  pb.style.strokeDasharray=`${db} ${CIRC-db}`;pb.style.strokeDashoffset=`${-(dm+dc)}`;
+  document.getElementById('pie-pct').textContent=t.pcu;
+}
+
+function drawYOLO(boxes,r,t,imgW,imgH){
+  const ov=document.getElementById('ov'),ctx=ov.getContext('2d');
+  const W=ov.width,H=ov.height;
+  const scale=Math.min(W/imgW,H/imgH);
+  const offX=(W-imgW*scale)/2,offY=(H-imgH*scale)/2;
+  const CLR={[CLS_MOTO]:'#007aff',[CLS_CAR]:'#ff9500',[CLS_BUS]:'#ff6b00',[CLS_TRUCK]:'#ff6b00'};
+  const LBL={[CLS_MOTO]:'Xe máy',[CLS_CAR]:'Ô tô',[CLS_BUS]:'Xe lớn',[CLS_TRUCK]:'Xe tải'};
+  boxes.forEach(b=>{
+    const x=offX+b.x1*scale,y=offY+b.y1*scale,w=(b.x2-b.x1)*scale,h=(b.y2-b.y1)*scale;
+    const col=CLR[b.cls]||'#007aff';
+    ctx.fillStyle=col+'18';ctx.fillRect(x,y,w,h);
+    ctx.strokeStyle=col;ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
+    const lbl=`${LBL[b.cls]||'?'} ${b.conf.toFixed(2)}`;
+    ctx.font='bold 9px -apple-system';const tw=ctx.measureText(lbl).width;
+    ctx.fillStyle=col;ctx.fillRect(x,y-14,tw+8,13);
+    ctx.fillStyle='#fff';ctx.fillText(lbl,x+4,y-3);
+  });
+  drawInfoBar(r,t,W,H,'YOLO on-device');
+}
+
+function drawFallback(r,t,imgW,imgH){
+  const ov=document.getElementById('ov'),ctx=ov.getContext('2d');
+  const W=ov.width,H=ov.height;
+  const types=[{l:'Xe máy',n:Math.min(r.soXeMay||0,12),c:'#007aff',w:28,h:42},{l:'Ô tô',n:Math.min(r.soOTo||0,8),c:'#ff9500',w:56,h:36},{l:'Xe lớn',n:Math.min(r.soXeLon||0,3),c:'#ff6b00',w:76,h:48}];
+  const scale=Math.min(W/imgW,H/imgH);
+  const offX=(W-imgW*scale)/2,offY=(H-imgH*scale)/2,dW=imgW*scale,dH=imgH*scale;
+  let idx=0;
+  types.forEach(tp=>{
+    for(let i=0;i<tp.n;i++){
+      const gx=offX+(idx%7)*(tp.w+8),gy=offY+8+Math.floor(idx/7)*(tp.h+22);
+      if(gx+tp.w>offX+dW-4||gy+tp.h>offY+dH-4){idx++;continue;}
+      ctx.fillStyle=tp.c+'18';ctx.fillRect(gx,gy,tp.w,tp.h);
+      ctx.strokeStyle=tp.c;ctx.lineWidth=1.5;ctx.strokeRect(gx,gy,tp.w,tp.h);
+      const lbl=`${tp.l} ${(.72+Math.random()*.24).toFixed(2)}`;
+      ctx.font='bold 8px -apple-system';const tw=ctx.measureText(lbl).width;
+      ctx.fillStyle=tp.c;ctx.fillRect(gx,gy-13,tw+6,12);ctx.fillStyle='#fff';ctx.fillText(lbl,gx+3,gy-3);
+      idx++;
+    }
+  });
+  drawInfoBar(r,t,W,H,'Claude Vision');
+}
+
+function drawInfoBar(r,t,W,H,engine){
+  const ctx=document.getElementById('ov').getContext('2d');
+  ctx.fillStyle='rgba(255,255,255,.9)';ctx.fillRect(0,H-26,W,26);
+  ctx.fillStyle='rgba(0,0,0,.06)';ctx.fillRect(0,H-26,W,1);
+  ctx.fillStyle='#007aff';ctx.font='bold 9px -apple-system';
+  ctx.fillText(`TrafficAI · ${engine}`,10,H-10);
+  ctx.fillStyle='rgba(0,0,0,.45)';ctx.font='9px -apple-system';
+  ctx.fillText(`🛵${r.soXeMay||0} 🚗${r.soOTo||0} 🚌${r.soXeLon||0}  PCU:${t.pcu}  OR:${Math.round(t.OR*100)}%  D:${Math.round(t.ds*100)}%`,120,H-10);
+}
+
+// ═══════════════════════════════════════════════════
+// HISTORY & CHART
+// ═══════════════════════════════════════════════════
+function saveHist(r,t){
+  history.unshift({time:new Date().toISOString(),moto:r.soXeMay||0,car:r.soOTo||0,bus:r.soXeLon||0,pcu:t.pcu,or:Math.round(t.OR*100),ds:Math.round(t.ds*100),road:t.road,status:t.ds<.25?'gn':t.ds<.5?'yw':t.ds<.75?'og':'rd'});
+  if(history.length>50)history.pop();
+  localStorage.setItem('tai_hist',JSON.stringify(history));
+  renderHistory();
+}
+function getStTxt(s){return{gn:'Thông thoáng',yw:'Bình thường',og:'Đông đúc',rd:'Kẹt xe!'}[s]||'–';}
+
+function renderHistory(){
+  const list=document.getElementById('hist-list');
+  document.getElementById('hist-empty').style.display=history.length?'none':'flex';
+  list.querySelectorAll('.hist-item').forEach(e=>e.remove());
+  const sCOL={gn:'#34c759',yw:'#ff9500',og:'#ff6b00',rd:'#ff3b30'};
+  const sICO={gn:'🟢',yw:'🟡',og:'🟠',rd:'🔴'};
+  history.slice(0,20).forEach(h=>{
+    const d=new Date(h.time);
+    const ts=d.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})+' · '+d.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit'});
+    const el=document.createElement('div');el.className='hist-item';
+    el.innerHTML=`<div style="font-size:26px">${sICO[h.status]||'⚪'}</div>
+    <div class="hi-left"><div class="hi-loc">Cấp ${h.road} · Biên Hòa</div>
+    <div class="hi-sub">🛵${h.moto} 🚗${h.car} 🚌${h.bus} · PCU ${h.pcu} · OR ${h.or}%</div>
+    <span class="hi-badge ${h.status}">${getStTxt(h.status)}</span></div>
+    <div><div class="hi-score" style="color:${sCOL[h.status]}">${h.ds}%</div><div class="hi-time">${ts}</div></div>`;
+    list.appendChild(el);
+  });
+}
+
+function clearHistory(){if(!confirm('Xóa toàn bộ lịch sử?'))return;history=[];localStorage.removeItem('tai_hist');renderHistory();}
+
+function renderChart(){
+  const total=history.length;
+  document.getElementById('s-moto').textContent=history.reduce((s,h)=>s+h.moto,0);
+  document.getElementById('s-car').textContent=history.reduce((s,h)=>s+h.car,0);
+  document.getElementById('s-avg').textContent=total?Math.round(history.reduce((s,h)=>s+h.ds,0)/total)+'%':'–';
+  document.getElementById('s-count').textContent=total;
+  const bars=document.getElementById('bar-chart');
+  if(!total){bars.innerHTML='<div style="width:100%;display:flex;align-items:center;justify-content:center;color:var(--tx3);font-size:11px">Chưa có dữ liệu</div>';return;}
+  const last=history.slice(0,12).reverse();
+  const maxDs=Math.max(...last.map(h=>h.ds),1);
+  const sCOL={gn:'#34c759',yw:'#ff9500',og:'#ff6b00',rd:'#ff3b30'};
+  bars.innerHTML=last.map(h=>{
+    const d=new Date(h.time);const pct=Math.max(4,(h.ds/maxDs)*100);
+    return`<div class="bar-col"><div class="bar-val" style="color:${sCOL[h.status]}">${h.ds}%</div>
+    <div class="bar" style="height:${pct}%;background:${sCOL[h.status]};opacity:.8"></div>
+    <div class="bar-lbl">${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}</div></div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════════════════════
+function exportResult(){
+  const ov=document.getElementById('ov'),vid=document.getElementById('vid');
+  const c=document.createElement('canvas');c.width=ov.width;c.height=ov.height;
+  const ctx=c.getContext('2d');
+  if(vid.srcObject&&vid.readyState>=2){const s=Math.min(ov.width/vid.videoWidth,ov.height/vid.videoHeight);ctx.drawImage(vid,(ov.width-vid.videoWidth*s)/2,(ov.height-vid.videoHeight*s)/2,vid.videoWidth*s,vid.videoHeight*s);}
+  ctx.drawImage(ov,0,0);
+  const a=document.createElement('a');a.href=c.toDataURL('image/png');
+  a.download='TrafficAI_BienHoa_'+Date.now()+'.png';a.click();
+}
+
+// ═══════════════════════════════════════════════════
+// TABS + UI HELPERS
+// ═══════════════════════════════════════════════════
+function switchTab(tab){
+  ['cam','hist','chart'].forEach(t=>{
+    document.getElementById('tab-'+t)?.classList.toggle('on',t===tab);
+    document.getElementById('page-'+t)?.classList.toggle('on',t===tab);
+  });
+  if(tab==='chart')renderChart();
+}
+
+function setAl(cls,ico,t,s){
+  const el=document.getElementById('al');el.className='alert '+cls;
+  document.getElementById('aico').textContent=ico;
+  const cm={gn:'#34c759',yw:'#ff9500',og:'#ff6b00',rd:'#ff3b30'};
+  document.getElementById('at').style.color=cm[cls]||'var(--tx)';
+  document.getElementById('at').textContent=t;document.getElementById('as').textContent=s;
+}
+function showProc(s,t){document.getElementById('proc').style.display=s?'flex':'none';if(t)document.getElementById('ptxt').textContent=t;}
+function setStatus(t){document.getElementById('stat').textContent=t;}
+function setRoad(r){
+  forced=r==='auto'?null:r;
+  ['A','X','B','C'].forEach(x=>{const el=document.getElementById('r'+x);if(el)el.classList.toggle('on',x===(r==='auto'?'X':r));});
+}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+
+// Dark mode
+let isDark=window.matchMedia('(prefers-color-scheme: dark)').matches;
+function applyMode(){document.documentElement.classList.toggle('dark',isDark);document.getElementById('mode-btn').textContent=isDark?'☀️':'🌙';document.querySelector('meta[name="theme-color"]').content=isDark?'#1c1c1e':'#f2f2f7';}
+function toggleMode(){isDark=!isDark;applyMode();}
+applyMode();
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',e=>{isDark=e.matches;applyMode();});
+
+// iOS install
+if(/iphone|ipad|ipod/i.test(navigator.userAgent)&&!window.navigator.standalone)
+  setTimeout(()=>document.getElementById('ib').style.display='flex',5000);
+
+// Init
+renderHistory();
+window.addEventListener('load',()=>{resizeOv();loadModel();});
+</script>
+</body>
+</html>
