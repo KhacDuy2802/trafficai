@@ -371,7 +371,7 @@ async function loadModel(){
       executionProviders:['wasm'],graphOptimizationLevel:'all'
     });
     modelReady=true;
-    setStatus('YOLO on-device sẵn sàng · 110 ảnh Biên Hòa');
+    setStatus('Claude Vision + YOLO v2 · Biên Hòa');
     document.getElementById('hc4').textContent='YOLO v2 ✓';
     document.getElementById('hc4').className='chip g';
     document.getElementById('badge-yolo').style.display='block';
@@ -443,11 +443,8 @@ async function upload(file){
       ctx.drawImage(img,(ov.width-img.width*s)/2,(ov.height-img.height*s)/2,img.width*s,img.height*s);
       document.getElementById('idle').style.display='none';
       document.getElementById('bai').disabled=false;
-      if(modelReady){
-        const c=document.createElement('canvas');c.width=img.width;c.height=img.height;
-        c.getContext('2d').drawImage(img,0,0);
-        await runYOLO_full(c.getContext('2d').getImageData(0,0,img.width,img.height),img.width,img.height);
-      } else await runClaude(b64,file.type||'image/jpeg',img.width,img.height);
+      // Dùng Claude Vision
+      await runClaude(b64,file.type||'image/jpeg',img.width,img.height);
     };img.src=url;
   };r.readAsDataURL(file);
 }
