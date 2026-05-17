@@ -542,7 +542,13 @@ async function runClaude(b64,mime,imgW,imgH){
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,
         messages:[{role:'user',content:[
           {type:'image',source:{type:'base64',media_type:mime,data:b64}},
-          {type:'text',text:`Phân tích giao thông Biên Hòa.${forced?` Cấp ${forced}.`:''} JSON only: {"soXeMay":<n>,"soOTo":<n>,"soXeLon":<n>,"loaiDuong":"Cap_A|Cap_B|Cap_C","occupancyRate":<0-1>,"nhanXet":"<1 câu>"}`}
+          {type:'text',text:`Phân tích giao thông thành phố Biên Hòa, Đồng Nai.${forced?' Cấp '+forced+'.':''}
+Quy tắc đếm CHẶT CHẼ:
+- CHỈ đếm xe nhìn thấy RÕ RÀNG (≥50% thân xe hiện trong ảnh)
+- KHÔNG đếm xe mờ, xe bị che khuất >50%, xe ở rất xa không rõ
+- KHÔNG đếm bóng xe, phản chiếu, đèn xe
+- Đếm từng xe một cẩn thận, tránh đếm trùng
+JSON only: {"soXeMay":<số xe máy rõ>,"soOTo":<số ô tô rõ>,"soXeLon":<số xe lớn rõ>,"loaiDuong":"Cap_A|Cap_B|Cap_C","occupancyRate":<0.0-1.0>,"nhanXet":"<1 câu>"}`}
         ]}]
       })
     });
