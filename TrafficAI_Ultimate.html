@@ -459,14 +459,16 @@ async function upload(file){
     const url=e.target.result,b64=url.split(',')[1];
     const img=new Image();
     img.onload=async()=>{
+      if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;document.getElementById('vid').srcObject=null;}
       resizeOv();
       const ov=document.getElementById('ov'),ctx=ov.getContext('2d');
+      ctx.fillStyle='#000';ctx.fillRect(0,0,ov.width,ov.height);
       const s=Math.min(ov.width/img.width,ov.height/img.height);
-      ctx.clearRect(0,0,ov.width,ov.height);
       ctx.drawImage(img,(ov.width-img.width*s)/2,(ov.height-img.height*s)/2,img.width*s,img.height*s);
       document.getElementById('idle').style.display='none';
+      document.getElementById('hud').style.display='flex';
       document.getElementById('bai').disabled=false;
-      // Dùng YOLO nếu có model, fallback Claude
+      document.getElementById('dot').classList.add('on');
       if(modelReady){
         const tmpC=document.createElement('canvas');tmpC.width=img.width;tmpC.height=img.height;
         tmpC.getContext('2d').drawImage(img,0,0);
