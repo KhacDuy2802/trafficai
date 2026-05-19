@@ -477,7 +477,7 @@ const CONF=0.15,IOU=0.35,SZ=640;
 
 let stream=null,forced=null,busy=false;
 let ortSession=null,modelReady=false;
-let history=JSON.parse(localStorage.getItem('tai_hist')||'[]');
+let appHistory=JSON.parse(localStorage.getItem('tai_hist')||'[]');
 let apiKey='';
 
 // ═══════════════════════════════════════════════════
@@ -841,8 +841,8 @@ function render(r,t){
 // ═══════════════════════════════════════════════════
 function saveHistory(r,t){
   const entry={time:Date.now(),moto:r.soXeMay||0,car:r.soOTo||0,bus:r.soXeLon||0,pcu:Math.round(t.pcu),ds:t.ds,status:t.status,road:t.road,note:r.nhanXet||''};
-  history.unshift(entry);if(history.length>50)history.pop();
-  const data=JSON.stringify(history);
+  appHistory.unshift(entry);if(appHistory.length>50)appHistory.pop();
+  const data=JSON.stringify(appHistory);
   try{localStorage.setItem('tai_hist',data);}catch(e){}
   try{sessionStorage.setItem('tai_hist',data);}catch(e){}
   // Lưu backup vào cookie (7 ngày)
@@ -862,19 +862,19 @@ function restoreHistory(){
     try{data=sessionStorage.getItem('tai_hist');}catch(e){}
   }
   if(data){
-    try{history=JSON.parse(data);renderHistory();renderChart();}catch(e){}
+    try{appHistory=JSON.parse(data);renderHistory();renderChart();}catch(e){}
   }
 }
 
 function renderHistory(){
   const list=document.getElementById('hist-list');
   const empty=document.getElementById('hist-empty');
-  if(!history.length){if(empty)empty.style.display='flex';return;}
+  if(!appHistory.length){if(empty)empty.style.display='flex';return;}
   if(empty)empty.style.display='none';
   const col={gn:'#34c759',yw:'#ff9500',og:'#ff6b00',rd:'#ff3b30'};
   const lbl={gn:'Thông thoáng',yw:'Đông đúc',og:'Ùn tắc',rd:'Ùn tắc nặng'};
   list.querySelectorAll('.hist-item').forEach(e=>e.remove());
-  history.forEach(h=>{
+  appHistory.forEach(h=>{
     const d=new Date(h.time);
     const el=document.createElement('div');el.className='hist-item';
     el.innerHTML=`<div class="hi-left"><div class="hi-loc">📍 Biên Hòa · Cấp ${h.road||'B'}</div>
@@ -926,10 +926,10 @@ function drawYOLO(boxes,r,t,imgW,imgH){
 }
 
 function exportCSV(){
-  if(!history.length){alert('Chưa có dữ liệu để xuất!');return;}
+  if(!appHistory.length){alert('Chưa có dữ liệu để xuất!');return;}
   const header='Thời gian,Xe máy,Ô tô,Xe lớn,PCU,D-Score,Tình trạng,Loại đường';
   const lbl={gn:'Thông thoáng',yw:'Đông đúc',og:'Ùn tắc',rd:'Ùn tắc nặng'};
-  const rows=history.map(h=>{
+  const rows=appHistory.slice(0,20).map(h=>{
     const d=new Date(h.time);
     return [d.toLocaleDateString('vi-VN')+' '+d.toLocaleTimeString('vi-VN'),h.moto,h.car,h.bus,h.pcu,h.ds+'%',lbl[h.status]||'','Cấp '+(h.road||'B')].join(',');
   });
@@ -941,15 +941,15 @@ function exportCSV(){
 }
 
 function updateReportStats(){
-  const total=history.length;
+  const total=appHistory.length;
   document.getElementById('rpt-total').textContent=total;
   if(!total)return;
-  const avgDs=Math.round(history.reduce((s,h)=>s+h.ds,0)/total);
+  const avgDs=Math.round(appHistory.reduce((s,h)=>s+h.ds,0)/total);
   document.getElementById('rpt-avg-ds').textContent=avgDs+'%';
-  const peak=Math.max(...history.map(h=>h.ds));
+  const peak=Math.max(...appHistory.map(h=>h.ds));
   document.getElementById('rpt-peak').textContent=peak+'%';
-  const totalMoto=history.reduce((s,h)=>s+h.moto,0);
-  const totalAll=history.reduce((s,h)=>s+h.moto+h.car+h.bus,0);
+  const totalMoto=appHistory.reduce((s,h)=>s+h.moto,0);
+  const totalAll=appHistory.reduce((s,h)=>s+h.moto+h.car+h.bus,0);
   document.getElementById('rpt-moto-pct').textContent=totalAll?Math.round(totalMoto/totalAll*100)+'%':'–';
 }
 
@@ -958,8 +958,8 @@ function calcAccuracy(){
   const gtCar=parseInt(document.getElementById('gt-car').value)||0;
   const gtBus=parseInt(document.getElementById('gt-bus').value)||0;
   // Lấy kết quả YOLO gần nhất từ history
-  if(!history.length){alert('Chưa có dữ liệu phân tích!');return;}
-  const last=history[0];
+  if(!appHistory.length){alert('Chưa có dữ liệu phân tích!');return;}
+  const last=appHistory[0];
   const aiMoto=last.moto,aiCar=last.car,aiBus=last.bus;
   const accMoto=gtMoto>0?Math.round((1-Math.abs(aiMoto-gtMoto)/gtMoto)*100):aiMoto===0?100:0;
   const accCar=gtCar>0?Math.round((1-Math.abs(aiCar-gtCar)/gtCar)*100):aiCar===0?100:0;
@@ -978,14 +978,14 @@ Sai số tuyệt đối: ${Math.abs(aiTotal-gtTotal)} xe · Độ chính xác t�
 function exportPDF(){
   const loc=document.getElementById('rpt-loc').value||'Biên Hòa, Đồng Nai';
   const note=document.getElementById('rpt-note').value||'';
-  const total=history.length;
+  const total=appHistory.length;
   if(!total){alert('Chưa có dữ liệu để xuất!');return;}
-  const avgDs=Math.round(history.reduce((s,h)=>s+h.ds,0)/total);
-  const totalMoto=history.reduce((s,h)=>s+h.moto,0);
-  const totalCar=history.reduce((s,h)=>s+h.car,0);
-  const totalBus=history.reduce((s,h)=>s+h.bus,0);
-  const peak=Math.max(...history.map(h=>h.ds));
-  const rows=history.slice(0,20).map((h,i)=>{
+  const avgDs=Math.round(appHistory.reduce((s,h)=>s+h.ds,0)/total);
+  const totalMoto=appHistory.reduce((s,h)=>s+h.moto,0);
+  const totalCar=appHistory.reduce((s,h)=>s+h.car,0);
+  const totalBus=appHistory.reduce((s,h)=>s+h.bus,0);
+  const peak=Math.max(...appHistory.map(h=>h.ds));
+  const rows=appHistory.slice(0,20).map((h,i)=>{
     const d=new Date(h.time);
     const lbl={gn:'Thông thoáng',yw:'Đông đúc',og:'Ùn tắc',rd:'Ùn tắc nặng'};
     return `<tr style="background:${i%2?'#f9f9fb':'#fff'}">
@@ -1050,9 +1050,9 @@ function importCSV(input){
         });
       });
       if(!imported.length){alert('Không đọc được dữ liệu!');return;}
-      history=[...imported,...history].slice(0,50);
-      localStorage.setItem('tai_hist',JSON.stringify(history));
-      sessionStorage.setItem('tai_hist',JSON.stringify(history));
+      appHistory=[...imported,...appHistory].slice(0,50);
+      localStorage.setItem('tai_hist',JSON.stringify(appHistory));
+      sessionStorage.setItem('tai_hist',JSON.stringify(appHistory));
       renderHistory();renderChart();updateReportStats();
       alert('Đã nhập '+imported.length+' bản ghi!');
     }catch(err){alert('Lỗi đọc file: '+err.message);}
@@ -1060,17 +1060,17 @@ function importCSV(input){
   r.readAsText(file,'utf-8');
 }
 
-function clearHistory(){if(!confirm('Xóa toàn bộ lịch sử?'))return;history=[];localStorage.removeItem('tai_hist');renderHistory();}
+function clearHistory(){if(!confirm('Xóa toàn bộ lịch sử?'))return;appHistory=[];localStorage.removeItem('tai_hist');sessionStorage.removeItem('tai_hist');renderHistory();}
 
 function renderChart(){
-  const total=history.length;
-  document.getElementById('s-moto').textContent=history.reduce((s,h)=>s+h.moto,0);
-  document.getElementById('s-car').textContent=history.reduce((s,h)=>s+h.car,0);
-  document.getElementById('s-avg').textContent=total?Math.round(history.reduce((s,h)=>s+h.ds,0)/total)+'%':'–';
+  const total=appHistory.length;
+  document.getElementById('s-moto').textContent=appHistory.reduce((s,h)=>s+h.moto,0);
+  document.getElementById('s-car').textContent=appHistory.reduce((s,h)=>s+h.car,0);
+  document.getElementById('s-avg').textContent=total?Math.round(appHistory.reduce((s,h)=>s+h.ds,0)/total)+'%':'–';
   document.getElementById('s-count').textContent=total;
   const bars=document.getElementById('bar-chart');
   if(!total){bars.innerHTML='<div style="width:100%;display:flex;align-items:center;justify-content:center;color:var(--tx3);font-size:11px">Chưa có dữ liệu</div>';return;}
-  const last=history.slice(0,12).reverse();
+  const last=appHistory.slice(0,12).reverse();
   const maxDs=Math.max(...last.map(h=>h.ds),1);
   const sCOL={gn:'#34c759',yw:'#ff9500',og:'#ff6b00',rd:'#ff3b30'};
   bars.innerHTML=last.map(h=>{
