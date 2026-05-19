@@ -778,24 +778,30 @@ function drawYOLO(boxes,r,t,imgW,imgH){
   const ov=document.getElementById('ov');
   const ctx=ov.getContext('2d');
   ctx.clearRect(0,0,ov.width,ov.height);
-  // Tính scale và offset để vẽ đúng vị trí (letterbox fit)
   const scale=Math.min(ov.width/imgW,ov.height/imgH);
   const offX=(ov.width-imgW*scale)/2;
   const offY=(ov.height-imgH*scale)/2;
-  // Class 0=ô tô(cam), 1=xe máy(xanh), 2=xe lớn(đỏ)
   const clr={0:'#ff9500',1:'#007aff',2:'#ff3b30',3:'#007aff',5:'#ff3b30',7:'#ff3b30'};
-  const nm={0:'Ô tô',1:'Xe máy',2:'Xe lớn',3:'Xe máy',5:'Xe buýt',7:'Xe tải'};
+  const nm={0:'Ô tô',1:'🛵',2:'Xe lớn',3:'🛵',5:'Xe buýt',7:'Xe tải'};
+  // Vẽ box trước, label sau để tránh che nhau
   boxes.forEach(b=>{
     const x=offX+b.x1*scale,y=offY+b.y1*scale;
     const w=(b.x2-b.x1)*scale,h=(b.y2-b.y1)*scale;
-    ctx.strokeStyle=clr[b.cls]||'#fff';ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
-    const label=nm[b.cls]||('Cls'+b.cls);
-    ctx.font='bold 10px sans-serif';
-    const lw=ctx.measureText(label).width+8;
-    ctx.fillStyle=clr[b.cls]||'#fff';ctx.globalAlpha=0.85;
-    ctx.fillRect(x,Math.max(0,y-16),lw,16);
-    ctx.globalAlpha=1;ctx.fillStyle='#fff';
-    ctx.fillText(label,x+4,Math.max(12,y-4));
+    if(w<4||h<4)return;
+    ctx.strokeStyle=clr[b.cls]||'#fff';
+    ctx.lineWidth=Math.max(1.5,Math.min(w,h)/40);
+    ctx.strokeRect(x,y,w,h);
+    // Chỉ hiện label nếu box đủ lớn (tránh chồng)
+    if(w>30&&h>20){
+      const label=nm[b.cls]||'?';
+      ctx.font='bold 9px sans-serif';
+      const lw=ctx.measureText(label).width+6;
+      const ly=Math.max(offY+1,y-14);
+      ctx.fillStyle=clr[b.cls]||'#fff';ctx.globalAlpha=0.82;
+      ctx.fillRect(x,ly,lw,13);
+      ctx.globalAlpha=1;ctx.fillStyle='#fff';
+      ctx.fillText(label,x+3,ly+10);
+    }
   });
 }
 
