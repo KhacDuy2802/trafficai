@@ -749,17 +749,24 @@ function drawYOLO(boxes,r,t,imgW,imgH){
   const ov=document.getElementById('ov');
   const ctx=ov.getContext('2d');
   ctx.clearRect(0,0,ov.width,ov.height);
-  const sx=ov.width/imgW,sy=ov.height/imgH;
-  const clr={[CLS_MOTO]:'#007aff',[CLS_CAR]:'#ff9500',[CLS_BUS]:'#ff6b00',[CLS_TRUCK]:'#ff3b30'};
-  const nm={[CLS_MOTO]:'Xe máy',[CLS_CAR]:'Ô tô',[CLS_BUS]:'Xe lớn',[CLS_TRUCK]:'Xe tải'};
+  // Tính scale và offset để vẽ đúng vị trí (letterbox fit)
+  const scale=Math.min(ov.width/imgW,ov.height/imgH);
+  const offX=(ov.width-imgW*scale)/2;
+  const offY=(ov.height-imgH*scale)/2;
+  // Class 0=ô tô(cam), 1=xe máy(xanh), 2=xe lớn(đỏ)
+  const clr={0:'#ff9500',1:'#007aff',2:'#ff3b30',3:'#007aff',5:'#ff3b30',7:'#ff3b30'};
+  const nm={0:'Ô tô',1:'Xe máy',2:'Xe lớn',3:'Xe máy',5:'Xe buýt',7:'Xe tải'};
   boxes.forEach(b=>{
-    const x=b.x1*sx,y=b.y1*sy,w=(b.x2-b.x1)*sx,h=(b.y2-b.y1)*sy;
+    const x=offX+b.x1*scale,y=offY+b.y1*scale;
+    const w=(b.x2-b.x1)*scale,h=(b.y2-b.y1)*scale;
     ctx.strokeStyle=clr[b.cls]||'#fff';ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
+    const label=nm[b.cls]||('Cls'+b.cls);
+    ctx.font='bold 10px sans-serif';
+    const lw=ctx.measureText(label).width+8;
     ctx.fillStyle=clr[b.cls]||'#fff';ctx.globalAlpha=0.85;
-    const lw=ctx.measureText(nm[b.cls]||'').width+10;
-    ctx.fillRect(x,y-16,lw,16);ctx.globalAlpha=1;
-    ctx.fillStyle='#fff';ctx.font='bold 10px sans-serif';
-    ctx.fillText(nm[b.cls]||'',x+5,y-4);
+    ctx.fillRect(x,Math.max(0,y-16),lw,16);
+    ctx.globalAlpha=1;ctx.fillStyle='#fff';
+    ctx.fillText(label,x+4,Math.max(12,y-4));
   });
 }
 
