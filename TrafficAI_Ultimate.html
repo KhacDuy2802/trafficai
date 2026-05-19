@@ -443,7 +443,11 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
         <div class="si"><div class="si-n" id="rpt-moto-pct" style="color:#007aff">–</div><div class="si-l">🛵 % xe máy</div></div>
       </div>
       <button onclick="exportPDF()" style="width:100%;padding:10px;background:linear-gradient(135deg,#ff3b30,#ff6b00);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:6px">📄 Xuất báo cáo PDF</button>
-      <button onclick="exportCSV()" style="width:100%;padding:10px;background:rgba(52,199,89,.1);color:#34c759;border:1.5px solid rgba(52,199,89,.2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">📊 Xuất dữ liệu CSV</button>
+      <button onclick="exportCSV()" style="width:100%;padding:10px;background:rgba(52,199,89,.1);color:#34c759;border:1.5px solid rgba(52,199,89,.2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:6px">📊 Xuất dữ liệu CSV</button>
+      <label style="width:100%;padding:10px;background:rgba(175,82,222,.08);color:#af52de;border:1.5px solid rgba(175,82,222,.2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;display:block;text-align:center;box-sizing:border-box">
+        📂 Nhập lại CSV (khôi phục dữ liệu)
+        <input type="file" accept=".csv" onchange="importCSV(this)" style="display:none">
+      </label>
     </div>
 
   </div>
@@ -837,8 +841,28 @@ function render(r,t){
 function saveHistory(r,t){
   const entry={time:Date.now(),moto:r.soXeMay||0,car:r.soOTo||0,bus:r.soXeLon||0,pcu:Math.round(t.pcu),ds:t.ds,status:t.status,road:t.road,note:r.nhanXet||''};
   history.unshift(entry);if(history.length>50)history.pop();
-  localStorage.setItem('tai_hist',JSON.stringify(history));
+  const data=JSON.stringify(history);
+  try{localStorage.setItem('tai_hist',data);}catch(e){}
+  try{sessionStorage.setItem('tai_hist',data);}catch(e){}
+  // Lưu backup vào cookie (7 ngày)
+  try{
+    const d=new Date();d.setDate(d.getDate()+7);
+    document.cookie='tai_hist_count='+history.length+';expires='+d.toUTCString()+';path=/';
+  }catch(e){}
   renderHistory();
+  renderChart();
+}
+
+// Khôi phục từ sessionStorage nếu localStorage trống
+function restoreHistory(){
+  let data=null;
+  try{data=localStorage.getItem('tai_hist');}catch(e){}
+  if(!data||data==='[]'){
+    try{data=sessionStorage.getItem('tai_hist');}catch(e){}
+  }
+  if(data){
+    try{history=JSON.parse(data);renderHistory();renderChart();}catch(e){}
+  }
 }
 
 function renderHistory(){
@@ -1003,6 +1027,36 @@ function exportPDF(){
   const w=window.open('','_blank');
   w.document.write(html);w.document.close();
   setTimeout(()=>w.print(),500);
+}
+
+function importCSV(input){
+  const file=input.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const lines=e.target.result.split('\n').slice(1).filter(l=>l.trim());
+      const imported=[];
+      lines.forEach(line=>{
+        const cols=line.split(',');
+        if(cols.length<6)return;
+        const d=new Date(cols[0]);
+        if(isNaN(d))return;
+        const lbl={'Thông thoáng':'gn','Đông đúc':'yw','Ùn tắc':'og','Ùn tắc nặng':'rd'};
+        imported.push({
+          time:d.getTime(),moto:parseInt(cols[1])||0,car:parseInt(cols[2])||0,
+          bus:parseInt(cols[3])||0,pcu:parseInt(cols[4])||0,
+          ds:parseInt(cols[5])||0,status:lbl[cols[6]]||'gn',road:(cols[7]||'B').replace('Cấp ','')
+        });
+      });
+      if(!imported.length){alert('Không đọc được dữ liệu!');return;}
+      history=[...imported,...history].slice(0,50);
+      localStorage.setItem('tai_hist',JSON.stringify(history));
+      sessionStorage.setItem('tai_hist',JSON.stringify(history));
+      renderHistory();renderChart();updateReportStats();
+      alert('Đã nhập '+imported.length+' bản ghi!');
+    }catch(err){alert('Lỗi đọc file: '+err.message);}
+  };
+  r.readAsText(file,'utf-8');
 }
 
 function clearHistory(){if(!confirm('Xóa toàn bộ lịch sử?'))return;history=[];localStorage.removeItem('tai_hist');renderHistory();}
