@@ -1097,11 +1097,12 @@ function exportResult(){
 // TABS + UI HELPERS
 // ═══════════════════════════════════════════════════
 function switchTab(tab){
-  ['cam','hist','chart'].forEach(t=>{
+  ['cam','hist','chart','report'].forEach(t=>{
     document.getElementById('tab-'+t)?.classList.toggle('on',t===tab);
     document.getElementById('page-'+t)?.classList.toggle('on',t===tab);
   });
   if(tab==='chart')renderChart();
+  if(tab==='report')updateReportStats();
 }
 
 function setAl(cls,ico,t,s){
