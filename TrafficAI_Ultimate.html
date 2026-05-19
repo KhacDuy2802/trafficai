@@ -176,6 +176,22 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .install-bar p{font-size:10px;color:rgba(255,255,255,.8);flex:1;line-height:1.5}
 .install-bar strong{color:#fff;display:block;font-size:11px}
 .install-bar button{background:rgba(255,255,255,.2);border:none;border-radius:5px;padding:3px 8px;font-size:10px;color:#fff;cursor:pointer}
+
+/* Splash float animation */
+@keyframes floatIcon{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+
+/* Accuracy badge */
+.acc-badge{display:inline-flex;align-items:center;gap:3px;background:rgba(52,199,89,.12);color:#34c759;border-radius:6px;padding:2px 6px;font-size:9px;font-weight:600;margin-left:4px}
+
+/* Location + time chip */
+.meta-row{display:flex;gap:5px;margin-bottom:7px;flex-wrap:wrap}
+.meta-chip{background:var(--card);border-radius:8px;padding:5px 10px;font-size:10px;color:var(--tx2);box-shadow:var(--sh);display:flex;align-items:center;gap:4px;flex:1;min-width:0}
+.meta-chip span{font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Export buttons row */
+.export-row{display:flex;gap:6px;margin-bottom:7px}
+.export-row .export-btn{margin-bottom:0;flex:1}
+.btn-csv{background:rgba(52,199,89,.1);color:#34c759;border:1.5px solid rgba(52,199,89,.2)}
 </style>
 </head>
 <body>
@@ -226,6 +242,18 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
       <div class="idle-t">TrafficAI · Biên Hòa</div>
       <div class="idle-s" id="idle-s">Đang tải YOLO model...<br>Vui lòng đợi</div>
     </div>
+    <!-- SPLASH -->
+    <div id="splash" style="position:absolute;inset:0;background:linear-gradient(160deg,#1c1c2e 0%,#0a0a1a 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:50">
+      <div style="font-size:56px;animation:floatIcon 2s ease-in-out infinite">🚦</div>
+      <div style="font-size:24px;font-weight:800;color:#fff;letter-spacing:-0.5px">Traffic<span style="color:#007aff">AI</span></div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.4);letter-spacing:1px;text-transform:uppercase">Biên Hòa · Đồng Nai</div>
+      <div style="margin-top:8px;display:flex;flex-direction:column;align-items:center;gap:8px">
+        <div style="width:160px;height:3px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden">
+          <div id="splash-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#007aff,#5856d6);border-radius:2px;transition:width 0.3s ease"></div>
+        </div>
+        <div id="splash-txt" style="font-size:10px;color:rgba(255,255,255,0.35)">Đang tải model YOLO...</div>
+      </div>
+    </div>
   </div>
 
   <div class="bot">
@@ -270,6 +298,10 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
       </div>
     </div>
 
+    <div class="meta-row" id="meta-row" style="display:none">
+      <div class="meta-chip">📍 <span id="meta-loc">Biên Hòa, Đồng Nai</span></div>
+      <div class="meta-chip">🕐 <span id="meta-time">–</span></div>
+    </div>
     <div class="alert gn" id="al">
       <div class="al-ico" id="aico">📷</div>
       <div class="al-body">
@@ -278,7 +310,10 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
       </div>
     </div>
 
-    <button class="export-btn" id="export-btn" onclick="exportResult()">📸 Lưu kết quả vào Camera Roll</button>
+    <div class="export-row" id="export-row" style="display:none">
+      <button class="export-btn" onclick="exportResult()" style="display:flex">📸 Lưu ảnh</button>
+      <button class="export-btn btn-csv" onclick="exportCSV()" style="display:flex">📊 Xuất CSV</button>
+    </div>
 
     <div class="ctrl">
       <div class="road-seg">
@@ -679,6 +714,12 @@ function render(r,t){
   document.getElementById('hc1').textContent='Cấp '+t.road;
   document.getElementById('hc2').textContent='OR '+(Math.round((r.occupancyRate||0)*100))+'%';
   document.getElementById('hc3').textContent='PCU '+Math.round(t.pcu);
+  // Hiện meta row và export row
+  document.getElementById('meta-row').style.display='flex';
+  document.getElementById('export-row').style.display='flex';
+  document.getElementById('export-btn') && (document.getElementById('export-btn').style.display='none');
+  const now=new Date();
+  document.getElementById('meta-time').textContent=now.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})+' · '+now.toLocaleDateString('vi-VN');
   const total=(r.soXeMay||0)*0.5+(r.soOTo||0)*1+(r.soXeLon||0)*2.5||1;
   const mPct=(r.soXeMay||0)*0.5/total,cPct=(r.soOTo||0)/total,bPct=(r.soXeLon||0)*2.5/total;
   const C=CIRC;
@@ -746,6 +787,21 @@ function drawYOLO(boxes,r,t,imgW,imgH){
     ctx.globalAlpha=1;ctx.fillStyle='#fff';
     ctx.fillText(label,x+4,Math.max(12,y-4));
   });
+}
+
+function exportCSV(){
+  if(!history.length){alert('Chưa có dữ liệu để xuất!');return;}
+  const header='Thời gian,Xe máy,Ô tô,Xe lớn,PCU,D-Score,Tình trạng,Loại đường';
+  const lbl={gn:'Thông thoáng',yw:'Đông đúc',og:'Ùn tắc',rd:'Ùn tắc nặng'};
+  const rows=history.map(h=>{
+    const d=new Date(h.time);
+    return [d.toLocaleDateString('vi-VN')+' '+d.toLocaleTimeString('vi-VN'),h.moto,h.car,h.bus,h.pcu,h.ds+'%',lbl[h.status]||'','Cấp '+(h.road||'B')].join(',');
+  });
+  const csv='﻿'+header+'\n'+rows.join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='TrafficAI_BienHoa_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
 }
 
 function clearHistory(){if(!confirm('Xóa toàn bộ lịch sử?'))return;history=[];localStorage.removeItem('tai_hist');renderHistory();}
