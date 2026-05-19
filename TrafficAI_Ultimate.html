@@ -375,10 +375,85 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 </div>
 
 <!-- TAB BAR -->
+<!-- REPORT PAGE -->
+<div class="page" id="page-report">
+  <div class="page-hdr">
+    <h2>Báo cáo KLTN</h2>
+    <p>Biên Hòa · Phân tích độ chính xác</p>
+  </div>
+  <div class="chart-scroll">
+
+    <!-- Ghi chú địa điểm -->
+    <div class="chart-sec">
+      <div class="cs-t">📍 Thông tin khảo sát</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div>
+          <div style="font-size:10px;color:var(--tx3);margin-bottom:4px">Tên đường / địa điểm</div>
+          <input id="rpt-loc" type="text" placeholder="VD: Đường Nguyễn Ái Quốc, P. Tân Tiến" 
+            style="width:100%;padding:9px 12px;border-radius:9px;border:1.5px solid var(--bd2);background:var(--card2);color:var(--tx);font-size:13px;outline:none;font-family:var(--f);box-sizing:border-box"
+            value="Biên Hòa, Đồng Nai">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--tx3);margin-bottom:4px">Ghi chú thêm</div>
+          <input id="rpt-note" type="text" placeholder="VD: Giờ cao điểm sáng, trời nắng"
+            style="width:100%;padding:9px 12px;border-radius:9px;border:1.5px solid var(--bd2);background:var(--card2);color:var(--tx);font-size:13px;outline:none;font-family:var(--f);box-sizing:border-box">
+        </div>
+      </div>
+    </div>
+
+    <!-- So sánh accuracy -->
+    <div class="chart-sec">
+      <div class="cs-t">🎯 So sánh độ chính xác</div>
+      <div style="font-size:10px;color:var(--tx3);margin-bottom:10px">Nhập số đếm tay để tính sai số AI</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">
+        <div>
+          <div style="font-size:9px;color:var(--tx3);margin-bottom:3px">🛵 Xe máy (tay)</div>
+          <input id="gt-moto" type="number" min="0" placeholder="0"
+            style="width:100%;padding:7px;border-radius:8px;border:1.5px solid var(--bd2);background:var(--card2);color:#007aff;font-size:14px;font-weight:700;text-align:center;outline:none;box-sizing:border-box">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--tx3);margin-bottom:3px">🚗 Ô tô (tay)</div>
+          <input id="gt-car" type="number" min="0" placeholder="0"
+            style="width:100%;padding:7px;border-radius:8px;border:1.5px solid var(--bd2);background:var(--card2);color:#ff9500;font-size:14px;font-weight:700;text-align:center;outline:none;box-sizing:border-box">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--tx3);margin-bottom:3px">🚌 Xe lớn (tay)</div>
+          <input id="gt-bus" type="number" min="0" placeholder="0"
+            style="width:100%;padding:7px;border-radius:8px;border:1.5px solid var(--bd2);background:var(--card2);color:#ff6b00;font-size:14px;font-weight:700;text-align:center;outline:none;box-sizing:border-box">
+        </div>
+      </div>
+      <button onclick="calcAccuracy()" style="width:100%;padding:10px;background:var(--ac);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Tính độ chính xác</button>
+      <div id="acc-result" style="margin-top:10px;display:none">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">
+          <div class="si"><div class="si-n" id="acc-moto" style="color:#007aff">–</div><div class="si-l">🛵 Acc xe máy</div></div>
+          <div class="si"><div class="si-n" id="acc-car" style="color:#ff9500">–</div><div class="si-l">🚗 Acc ô tô</div></div>
+          <div class="si"><div class="si-n" id="acc-total" style="color:#34c759">–</div><div class="si-l">📊 Tổng acc</div></div>
+        </div>
+        <div id="acc-note" style="font-size:10px;color:var(--tx2);line-height:1.6;background:var(--card2);padding:8px;border-radius:8px"></div>
+      </div>
+    </div>
+
+    <!-- Tổng hợp KLTN -->
+    <div class="chart-sec">
+      <div class="cs-t">📋 Tổng hợp dữ liệu KLTN</div>
+      <div class="stat-grid" style="margin-bottom:10px">
+        <div class="si"><div class="si-n" id="rpt-total" style="color:#af52de">0</div><div class="si-l">📷 Tổng lần đo</div></div>
+        <div class="si"><div class="si-n" id="rpt-avg-ds" style="color:#34c759">–</div><div class="si-l">📊 D-Score TB</div></div>
+        <div class="si"><div class="si-n" id="rpt-peak" style="color:#ff3b30">–</div><div class="si-l">🔴 Đỉnh ùn tắc</div></div>
+        <div class="si"><div class="si-n" id="rpt-moto-pct" style="color:#007aff">–</div><div class="si-l">🛵 % xe máy</div></div>
+      </div>
+      <button onclick="exportPDF()" style="width:100%;padding:10px;background:linear-gradient(135deg,#ff3b30,#ff6b00);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:6px">📄 Xuất báo cáo PDF</button>
+      <button onclick="exportCSV()" style="width:100%;padding:10px;background:rgba(52,199,89,.1);color:#34c759;border:1.5px solid rgba(52,199,89,.2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">📊 Xuất dữ liệu CSV</button>
+    </div>
+
+  </div>
+</div>
+
 <div class="tabbar">
   <button class="tab on" id="tab-cam" onclick="switchTab('cam')"><div class="tab-i">📷</div>Camera</button>
   <button class="tab" id="tab-hist" onclick="switchTab('hist')"><div class="tab-i">📋</div>Lịch sử</button>
   <button class="tab" id="tab-chart" onclick="switchTab('chart')"><div class="tab-i">📊</div>Thống kê</button>
+  <button class="tab" id="tab-report" onclick="switchTab('report')"><div class="tab-i">📄</div>Báo cáo</button>
 </div>
 <div class="sb"></div>
 </div>
@@ -838,6 +913,96 @@ function exportCSV(){
   a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
   a.download='TrafficAI_BienHoa_'+new Date().toISOString().slice(0,10)+'.csv';
   a.click();
+}
+
+function updateReportStats(){
+  const total=history.length;
+  document.getElementById('rpt-total').textContent=total;
+  if(!total)return;
+  const avgDs=Math.round(history.reduce((s,h)=>s+h.ds,0)/total);
+  document.getElementById('rpt-avg-ds').textContent=avgDs+'%';
+  const peak=Math.max(...history.map(h=>h.ds));
+  document.getElementById('rpt-peak').textContent=peak+'%';
+  const totalMoto=history.reduce((s,h)=>s+h.moto,0);
+  const totalAll=history.reduce((s,h)=>s+h.moto+h.car+h.bus,0);
+  document.getElementById('rpt-moto-pct').textContent=totalAll?Math.round(totalMoto/totalAll*100)+'%':'–';
+}
+
+function calcAccuracy(){
+  const gtMoto=parseInt(document.getElementById('gt-moto').value)||0;
+  const gtCar=parseInt(document.getElementById('gt-car').value)||0;
+  const gtBus=parseInt(document.getElementById('gt-bus').value)||0;
+  // Lấy kết quả YOLO gần nhất từ history
+  if(!history.length){alert('Chưa có dữ liệu phân tích!');return;}
+  const last=history[0];
+  const aiMoto=last.moto,aiCar=last.car,aiBus=last.bus;
+  const accMoto=gtMoto>0?Math.round((1-Math.abs(aiMoto-gtMoto)/gtMoto)*100):aiMoto===0?100:0;
+  const accCar=gtCar>0?Math.round((1-Math.abs(aiCar-gtCar)/gtCar)*100):aiCar===0?100:0;
+  const gtTotal=gtMoto+gtCar+gtBus,aiTotal=aiMoto+aiCar+aiBus;
+  const accTotal=gtTotal>0?Math.round((1-Math.abs(aiTotal-gtTotal)/gtTotal)*100):100;
+  document.getElementById('acc-moto').textContent=Math.max(0,accMoto)+'%';
+  document.getElementById('acc-car').textContent=Math.max(0,accCar)+'%';
+  document.getElementById('acc-total').textContent=Math.max(0,accTotal)+'%';
+  document.getElementById('acc-result').style.display='block';
+  const note=`AI đếm: ${aiMoto} xe máy, ${aiCar} ô tô, ${aiBus} xe lớn (tổng ${aiTotal})
+Tay đếm: ${gtMoto} xe máy, ${gtCar} ô tô, ${gtBus} xe lớn (tổng ${gtTotal})
+Sai số tuyệt đối: ${Math.abs(aiTotal-gtTotal)} xe · Độ chính xác tổng: ${Math.max(0,accTotal)}%`;
+  document.getElementById('acc-note').textContent=note;
+}
+
+function exportPDF(){
+  const loc=document.getElementById('rpt-loc').value||'Biên Hòa, Đồng Nai';
+  const note=document.getElementById('rpt-note').value||'';
+  const total=history.length;
+  if(!total){alert('Chưa có dữ liệu để xuất!');return;}
+  const avgDs=Math.round(history.reduce((s,h)=>s+h.ds,0)/total);
+  const totalMoto=history.reduce((s,h)=>s+h.moto,0);
+  const totalCar=history.reduce((s,h)=>s+h.car,0);
+  const totalBus=history.reduce((s,h)=>s+h.bus,0);
+  const peak=Math.max(...history.map(h=>h.ds));
+  const rows=history.slice(0,20).map((h,i)=>{
+    const d=new Date(h.time);
+    const lbl={gn:'Thông thoáng',yw:'Đông đúc',og:'Ùn tắc',rd:'Ùn tắc nặng'};
+    return `<tr style="background:${i%2?'#f9f9fb':'#fff'}">
+      <td style="padding:5px 8px;font-size:11px">${d.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})} ${d.toLocaleDateString('vi-VN')}</td>
+      <td style="padding:5px 8px;text-align:center;color:#007aff;font-weight:600">${h.moto}</td>
+      <td style="padding:5px 8px;text-align:center;color:#ff9500;font-weight:600">${h.car}</td>
+      <td style="padding:5px 8px;text-align:center;color:#ff6b00;font-weight:600">${h.bus}</td>
+      <td style="padding:5px 8px;text-align:center;font-weight:700">${h.ds}%</td>
+      <td style="padding:5px 8px;text-align:center;font-size:10px">${lbl[h.status]||''}</td>
+    </tr>`;
+  }).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Báo cáo TrafficAI - ${loc}</title>
+  <style>body{font-family:Arial,sans-serif;padding:20px;max-width:800px;margin:0 auto}
+  h1{color:#007aff;font-size:22px}h2{font-size:15px;color:#333;margin-top:20px}
+  .meta{color:#666;font-size:12px;margin:4px 0}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:15px 0}
+  .card{background:#f2f2f7;border-radius:10px;padding:12px;text-align:center}
+  .card-n{font-size:24px;font-weight:700}.card-l{font-size:10px;color:#666;margin-top:2px}
+  table{width:100%;border-collapse:collapse;margin-top:10px}
+  th{background:#007aff;color:#fff;padding:7px 8px;font-size:11px;text-align:left}
+  .footer{margin-top:20px;font-size:10px;color:#999;text-align:center}</style></head>
+  <body>
+  <h1>🚦 Báo cáo phân tích giao thông TrafficAI</h1>
+  <p class="meta">📍 Địa điểm: <strong>${loc}</strong></p>
+  <p class="meta">📅 Xuất lúc: ${new Date().toLocaleString('vi-VN')}</p>
+  ${note?`<p class="meta">📝 Ghi chú: ${note}</p>`:''}
+  <h2>Tổng hợp dữ liệu (${total} lần đo)</h2>
+  <div class="grid">
+    <div class="card"><div class="card-n" style="color:#007aff">${totalMoto}</div><div class="card-l">🛵 Tổng xe máy</div></div>
+    <div class="card"><div class="card-n" style="color:#ff9500">${totalCar}</div><div class="card-l">🚗 Tổng ô tô</div></div>
+    <div class="card"><div class="card-n" style="color:#34c759">${avgDs}%</div><div class="card-l">📊 D-Score TB</div></div>
+    <div class="card"><div class="card-n" style="color:#ff3b30">${peak}%</div><div class="card-l">🔴 Đỉnh ùn tắc</div></div>
+  </div>
+  <h2>Chi tiết ${Math.min(total,20)} lần đo gần nhất</h2>
+  <table><thead><tr><th>Thời gian</th><th>Xe máy</th><th>Ô tô</th><th>Xe lớn</th><th>D-Score</th><th>Tình trạng</th></tr></thead>
+  <tbody>${rows}</tbody></table>
+  <div class="footer">Tạo bởi TrafficAI · KLTN · Biên Hòa, Đồng Nai</div>
+  </body></html>`;
+  const w=window.open('','_blank');
+  w.document.write(html);w.document.close();
+  setTimeout(()=>w.print(),500);
 }
 
 function clearHistory(){if(!confirm('Xóa toàn bộ lịch sử?'))return;history=[];localStorage.removeItem('tai_hist');renderHistory();}
