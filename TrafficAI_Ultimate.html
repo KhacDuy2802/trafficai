@@ -617,6 +617,7 @@ async function runYOLO_full(imgData,imgW,imgH){
     showProc(true,'Tính D-Score...');await sleep(100);
     const t=calc(r);showProc(false);
     render(r,t);drawYOLO(boxes,r,t,imgW,imgH);
+    saveHistory(r,t);
     setStatus(`YOLO ✓ · ${boxes.length} phương tiện · ${new Date().toLocaleTimeString('vi-VN')}`);
   }catch(e){
     showProc(true,'Fallback Claude Vision...');
