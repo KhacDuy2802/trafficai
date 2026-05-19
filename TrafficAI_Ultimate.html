@@ -495,13 +495,20 @@ async function runYOLO_full(imgData,imgW,imgH){
   try{
     const boxes=await runYOLO(imgData,imgW,imgH);
     const counts={moto:0,car:0,bus:0};
+    const clsDist={};
+    boxes.forEach(b=>{clsDist[b.cls]=(clsDist[b.cls]||0)+1;});
+    console.log('[YOLO] Class distribution:', clsDist);
+    // Model Biên Hòa custom: class 0=xe máy, 1=ô tô, 2=xe lớn (đã xác nhận)
     boxes.forEach(b=>{
-      // Hỗ trợ cả COCO class IDs và custom model class IDs
-      if(b.cls===CLS_MOTO||b.cls===CLS_MOTO2||b.cls===0)counts.moto++;
-      else if(b.cls===CLS_CAR||b.cls===CLS_CAR2||b.cls===1)counts.car++;
-      else counts.bus++;
+      if(b.cls===0)counts.moto++;
+      else if(b.cls===1)counts.car++;
+      else if(b.cls===2)counts.bus++;
+      else if(b.cls===3)counts.moto++; // COCO motorcycle fallback
+      else if(b.cls===5)counts.bus++;  // COCO bus fallback
+      else if(b.cls===7)counts.bus++;  // COCO truck fallback
+      else counts.car++;
     });
-    console.log('[YOLO] Counts:', counts, 'Total boxes:', boxes.length);
+    console.log('[YOLO] Final counts:', counts);
     const totalArea=boxes.reduce((s,b)=>{return s+(b.x2-b.x1)*(b.y2-b.y1);},0);
     const OR=Math.min(1,totalArea/(imgW*imgH*0.6));
     const r={soXeMay:counts.moto,soOTo:counts.car,soXeLon:counts.bus,loaiDuong:'Cap_B',occupancyRate:OR,nhanXet:`YOLO: ${counts.moto} xe máy, ${counts.car} ô tô, OR ${Math.round(OR*100)}%.`};
