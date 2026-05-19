@@ -582,6 +582,7 @@ async function runYOLO(imgData,imgW,imgH){
   }
   console.log('[YOLO] numDet:', numDet, 'numCls:', numCls, 'transposed:', transposed);
   const boxes=[];
+  const dynConf=window._dynConf||CONF;
   for(let i=0;i<numDet;i++){
     let cx,cy,w,h,bc=-1,bv=0;
     if(transposed){
@@ -592,7 +593,11 @@ async function runYOLO(imgData,imgW,imgH){
       cx=data[0*numDet+i];cy=data[1*numDet+i];w=data[2*numDet+i];h=data[3*numDet+i];
       for(let c=0;c<numCls+1;c++){const v=data[(4+c)*numDet+i];if(v>bv){bv=v;bc=c;}}
     }
-    if(bv<CONF)continue;
+    if(bv<dynConf)continue;
+    // Lọc box quá nhỏ (xe ở xa, không đáng đếm)
+    const bw=cx-w/2,bh=cy-h/2;
+    const relW=w/SZ,relH=h/SZ;
+    if(relW<0.015||relH<0.015)continue; // bỏ box nhỏ hơn 1.5% ảnh
     const x1=(cx-w/2-dx)/scale,y1=(cy-h/2-dy)/scale;
     const x2=(cx+w/2-dx)/scale,y2=(cy+h/2-dy)/scale;
     if(x2<0||y2<0||x1>imgW||y1>imgH)continue; // bỏ box hoàn toàn ngoài ảnh
@@ -615,11 +620,21 @@ async function runYOLO(imgData,imgW,imgH){
 }
 
 function nms(boxes){
-  boxes.sort((a,b)=>b.conf-a.conf);const keep=[],used=new Set();
-  for(let i=0;i<boxes.length;i++){
-    if(used.has(i))continue;keep.push(boxes[i]);
-    for(let j=i+1;j<boxes.length;j++){if(iou(boxes[i],boxes[j])>IOU)used.add(j);}
-  }return keep;
+  // Nhóm theo class trước, NMS trong từng class
+  const byClass={};
+  boxes.forEach(b=>{if(!byClass[b.cls])byClass[b.cls]=[];byClass[b.cls].push(b);});
+  const keep=[];
+  Object.values(byClass).forEach(cls=>{
+    cls.sort((a,b)=>b.conf-a.conf);
+    const used=new Set();
+    for(let i=0;i<cls.length;i++){
+      if(used.has(i))continue;keep.push(cls[i]);
+      for(let j=i+1;j<cls.length;j++){
+        if(iou(cls[i],cls[j])>IOU)used.add(j);
+      }
+    }
+  });
+  return keep;
 }
 function iou(a,b){
   const ix1=Math.max(a.x1,b.x1),iy1=Math.max(a.y1,b.y1),ix2=Math.min(a.x2,b.x2),iy2=Math.min(a.y2,b.y2);
