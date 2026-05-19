@@ -406,10 +406,18 @@ async function loadModel(){
   try{
     ort.env.wasm.wasmPaths='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
     setStatus('Đang tải YOLO model (v2)...');
+    document.getElementById('splash-bar').style.width='60%';
+    document.getElementById('splash-txt').textContent='Khởi tạo YOLO engine...';
     ortSession=await ort.InferenceSession.create(MODEL_URL,{
       executionProviders:['wasm'],graphOptimizationLevel:'all'
     });
     modelReady=true;
+    document.getElementById('splash-bar').style.width='100%';
+    document.getElementById('splash-txt').textContent='Sẵn sàng!';
+    await sleep(500);
+    const sp=document.getElementById('splash');
+    sp.style.transition='opacity 0.5s';sp.style.opacity='0';
+    await sleep(500);sp.style.display='none';
     setStatus('Claude Vision + YOLO v2 · Biên Hòa');
     document.getElementById('hc4').textContent='YOLO v2 ✓';
     document.getElementById('hc4').className='chip g';
