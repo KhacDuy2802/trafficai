@@ -1197,10 +1197,10 @@ async function getStreetName(){
           if(sorted[0])road=sorted[0].name||'';
         }
         const ward=data.locality||'';
-        const city=data.city||data.principalSubdivision||'Đồng Nai';
-        // Loại bỏ trùng lặp
-        const parts=[road,ward,city].filter((v,i,a)=>v&&a.indexOf(v)===i);
-        currentStreet=parts.length?parts.join(', '):'Biên Hòa, Đồng Nai';
+        // Lấy tên thành phố (localityType giúp phân biệt city/town)
+        // Format: Phường X, Thành phố Đồng Nai
+        const wardLabel=ward?`Phường ${ward}`:'';
+        currentStreet=wardLabel?`${wardLabel}, Thành phố Đồng Nai`:'Thành phố Đồng Nai';
         resolve(currentStreet);
       }catch(e){resolve(null);}
     },err=>{resolve(null);},{timeout:5000,maximumAge:30000});
