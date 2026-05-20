@@ -1198,11 +1198,9 @@ async function getStreetName(){
         }
         const ward=data.locality||'';
         const city=data.city||data.principalSubdivision||'Đồng Nai';
-        if(road&&road!==ward){
-          currentStreet=`${road}, ${ward?ward+', ':''}${city}`;
-        } else {
-          currentStreet=ward?`${ward}, ${city}`:'Biên Hòa, Đồng Nai';
-        }
+        // Loại bỏ trùng lặp
+        const parts=[road,ward,city].filter((v,i,a)=>v&&a.indexOf(v)===i);
+        currentStreet=parts.length?parts.join(', '):'Biên Hòa, Đồng Nai';
         resolve(currentStreet);
       }catch(e){resolve(null);}
     },err=>{resolve(null);},{timeout:5000,maximumAge:30000});
