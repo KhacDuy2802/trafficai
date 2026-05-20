@@ -330,7 +330,7 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
         <button class="btn btn-c" id="bcam" onclick="toggleCam()">📷 Camera</button>
         <button class="btn btn-a" id="bai" onclick="analyze()" disabled>🤖 Phân tích</button>
       </div>
-      <button onclick="requestLocation()" style="background:var(--card2);border:none;border-radius:10px;padding:8px 12px;font-size:18px;cursor:pointer" title="Lấy vị trí GPS">📍</button>
+      <button onclick="requestLocation()" style="background:var(--card2);border:none;border-radius:10px;padding:8px 10px;font-size:12px;font-weight:600;color:var(--tx);cursor:pointer;display:flex;align-items:center;gap:3px">📍<span>GPS</span></button>
       <label class="btn-u">📂<input type="file" accept="image/*" onchange="upload(this.files[0])"></label>
     </div>
   </div>
@@ -623,9 +623,6 @@ async function runYOLO_full(imgData,imgW,imgH){
     const t=calc(r);showProc(false);
     render(r,t);drawYOLO(boxes,r,t,imgW,imgH);
     saveHistory(r,t);
-    // Tự động lưu ảnh với tên đường
-    const ts=new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})+' '+new Date().toLocaleDateString('vi-VN');
-    setTimeout(()=>autoSaveImage(currentStreet,ts),500);
     setStatus(`YOLO ✓ · ${boxes.length} phương tiện · ${new Date().toLocaleTimeString('vi-VN')}`);
   }catch(e){
     showProc(true,'Fallback Claude Vision...');
@@ -1093,7 +1090,39 @@ function renderChart(){
 // EXPORT
 // ═══════════════════════════════════════════════════
 function exportResult(){
-  autoSaveImage(currentStreet, new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})+' '+new Date().toLocaleDateString('vi-VN'));
+  const ov=document.getElementById('ov');
+  const preview=document.getElementById('upload-preview');
+  const vid=document.getElementById('vid');
+  // Canvas tổng hợp ảnh + box
+  const c=document.createElement('canvas');
+  c.width=ov.width;c.height=ov.height;
+  const ctx=c.getContext('2d');
+  // Vẽ ảnh nền
+  if(preview&&preview.style.display!=='none'&&preview.src){
+    ctx.drawImage(preview,0,0,c.width,c.height);
+  } else if(vid.srcObject&&vid.readyState>=2){
+    const s=Math.min(ov.width/vid.videoWidth,ov.height/vid.videoHeight);
+    ctx.drawImage(vid,(ov.width-vid.videoWidth*s)/2,(ov.height-vid.videoHeight*s)/2,vid.videoWidth*s,vid.videoHeight*s);
+  }
+  // Vẽ bounding boxes lên trên
+  ctx.drawImage(ov,0,0);
+  // Watermark tên đường + giờ
+  const now=new Date();
+  const ts=now.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})+' · '+now.toLocaleDateString('vi-VN');
+  const label=`📍 ${currentStreet} · ${ts}`;
+  ctx.font='bold 11px -apple-system,Arial,sans-serif';
+  const tw=ctx.measureText(label).width+16;
+  ctx.fillStyle='rgba(0,0,0,0.6)';
+  ctx.fillRect(0,c.height-26,Math.min(tw,c.width),26);
+  ctx.fillStyle='#fff';
+  ctx.fillText(label,8,c.height-8);
+  // Tải xuống
+  const safeName=currentStreet.replace(/[^\w\s]/g,'').replace(/\s+/g,'_').substring(0,25)||'BienHoa';
+  const tsFile=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+  const a=document.createElement('a');
+  a.href=c.toDataURL('image/jpeg',0.92);
+  a.download=`TrafficAI_${safeName}_${tsFile}.jpg`;
+  a.click();
 }
 
 // ═══════════════════════════════════════════════════
