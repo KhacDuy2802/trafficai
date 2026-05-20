@@ -1196,11 +1196,20 @@ async function getStreetName(){
           const sorted=[...admin].sort((a,b)=>(b.adminLevel||0)-(a.adminLevel||0));
           if(sorted[0])road=sorted[0].name||'';
         }
-        const ward=data.locality||'';
-        // Lấy tên thành phố (localityType giúp phân biệt city/town)
-        // Format: Phường X, Thành phố Đồng Nai
-        const wardLabel=ward?`Phường ${ward}`:'';
-        currentStreet=wardLabel?`${wardLabel}, Thành phố Đồng Nai`:'Thành phố Đồng Nai';
+        // city=phường (chính xác hơn locality), principalSubdivision=tỉnh
+        const phuong=data.city||data.locality||'';
+        const tinh=data.principalSubdivision||'Đồng Nai';
+        // Tìm tên thành phố từ informative (VD: "Biên Hòa")
+        const infoList=data.localityInfo?.informative||[];
+        const tpInfo=infoList.find(i=>i.description&&(
+          i.description.includes('Thành phố')||
+          i.description.includes('thành phố')||
+          i.description.includes('tỉnh lỵ')||
+          i.description.includes('thành thị')
+        ));
+        const tp=tpInfo?`${tpInfo.name}, ${tinh}`:tinh;
+        const phuongLabel=phuong?`Phường ${phuong}`:'';
+        currentStreet=phuongLabel?`${phuongLabel}, ${tp}`:`${tp}`;
         resolve(currentStreet);
       }catch(e){resolve(null);}
     },err=>{resolve(null);},{timeout:5000,maximumAge:30000});
