@@ -1178,22 +1178,29 @@ async function getStreetName(){
       currentLat=pos.coords.latitude;
       currentLng=pos.coords.longitude;
       try{
-        // BigDataCloud API + Nominatim để lấy tên đường
+        // BigDataCloud API - lấy đầy đủ thông tin địa chỉ
         const res=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${currentLat}&longitude=${currentLng}&localityLanguage=vi`);
         const data=await res.json();
+        // Tìm tên đường từ localityInfo.informative
+        let road='';
+        const informative=data.localityInfo?.informative||[];
+        const admin=data.localityInfo?.administrative||[];
+        // Tìm level cao nhất có thể là tên đường
+        for(const item of informative){
+          if(item.description&&(item.description.includes('road')||item.description.includes('street')||item.description.includes('route'))){
+            road=item.name||'';break;
+          }
+        }
+        if(!road){
+          // Lấy từ administrative level cao nhất (xã/phường/đường)
+          const sorted=[...admin].sort((a,b)=>(b.adminLevel||0)-(a.adminLevel||0));
+          if(sorted[0])road=sorted[0].name||'';
+        }
         const ward=data.locality||'';
         const city=data.city||data.principalSubdivision||'Đồng Nai';
-        // Thử lấy tên đường từ Nominatim
-        try{
-          const res2=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${currentLat}&lon=${currentLng}&format=json&accept-language=vi&zoom=18`);
-          const data2=await res2.json();
-          const road=data2.address?.road||data2.address?.pedestrian||data2.address?.path||'';
-          if(road){
-            currentStreet=`${road}${ward?', '+ward:''}${city?', '+city:''}`;
-          } else {
-            currentStreet=ward?`${ward}, ${city}`:'Biên Hòa, Đồng Nai';
-          }
-        }catch(e2){
+        if(road&&road!==ward){
+          currentStreet=`${road}, ${ward?ward+', ':''}${city}`;
+        } else {
           currentStreet=ward?`${ward}, ${city}`:'Biên Hòa, Đồng Nai';
         }
         resolve(currentStreet);
