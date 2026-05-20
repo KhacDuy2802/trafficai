@@ -1178,13 +1178,24 @@ async function getStreetName(){
       currentLat=pos.coords.latitude;
       currentLng=pos.coords.longitude;
       try{
-        // Thử BigDataCloud API (không bị CORS)
+        // BigDataCloud API + Nominatim để lấy tên đường
         const res=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${currentLat}&longitude=${currentLng}&localityLanguage=vi`);
         const data=await res.json();
-        const street=data.localityInfo?.administrative?.find(a=>a.adminLevel>=8)?.name||'';
-        const ward=data.locality||data.city||'';
-        const city=data.principalSubdivision||'Đồng Nai';
-        currentStreet=ward?`${ward}, ${city}`:(street||'Biên Hòa, Đồng Nai');
+        const ward=data.locality||'';
+        const city=data.city||data.principalSubdivision||'Đồng Nai';
+        // Thử lấy tên đường từ Nominatim
+        try{
+          const res2=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${currentLat}&lon=${currentLng}&format=json&accept-language=vi&zoom=18`);
+          const data2=await res2.json();
+          const road=data2.address?.road||data2.address?.pedestrian||data2.address?.path||'';
+          if(road){
+            currentStreet=`${road}${ward?', '+ward:''}${city?', '+city:''}`;
+          } else {
+            currentStreet=ward?`${ward}, ${city}`:'Biên Hòa, Đồng Nai';
+          }
+        }catch(e2){
+          currentStreet=ward?`${ward}, ${city}`:'Biên Hòa, Đồng Nai';
+        }
         resolve(currentStreet);
       }catch(e){resolve(null);}
     },err=>{resolve(null);},{timeout:5000,maximumAge:30000});
