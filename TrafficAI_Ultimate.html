@@ -479,6 +479,8 @@ let stream=null,forced=null,busy=false;
 let ortSession=null,modelReady=false;
 let appHistory=JSON.parse(localStorage.getItem('tai_hist')||'[]');
 let apiKey='';
+let currentStreet='Biên Hòa, Đồng Nai';
+let currentLat=null,currentLng=null;
 
 // ═══════════════════════════════════════════════════
 // LOAD YOLO MODEL
@@ -618,6 +620,9 @@ async function runYOLO_full(imgData,imgW,imgH){
     const t=calc(r);showProc(false);
     render(r,t);drawYOLO(boxes,r,t,imgW,imgH);
     saveHistory(r,t);
+    // Tự động lưu ảnh với tên đường
+    const ts=new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})+' '+new Date().toLocaleDateString('vi-VN');
+    setTimeout(()=>autoSaveImage(currentStreet,ts),500);
     setStatus(`YOLO ✓ · ${boxes.length} phương tiện · ${new Date().toLocaleTimeString('vi-VN')}`);
   }catch(e){
     showProc(true,'Fallback Claude Vision...');
@@ -840,7 +845,7 @@ function render(r,t){
 // HISTORY
 // ═══════════════════════════════════════════════════
 function saveHistory(r,t){
-  const entry={time:Date.now(),moto:r.soXeMay||0,car:r.soOTo||0,bus:r.soXeLon||0,pcu:Math.round(t.pcu),ds:t.ds,status:t.status,road:t.road,note:r.nhanXet||''};
+  const entry={time:Date.now(),moto:r.soXeMay||0,car:r.soOTo||0,bus:r.soXeLon||0,pcu:Math.round(t.pcu),ds:t.ds,status:t.status,road:t.road,note:r.nhanXet||'',street:currentStreet,lat:currentLat,lng:currentLng};
   appHistory.unshift(entry);if(appHistory.length>50)appHistory.pop();
   const data=JSON.stringify(appHistory);
   try{localStorage.setItem('tai_hist',data);}catch(e){}
@@ -877,7 +882,7 @@ function renderHistory(){
   appHistory.forEach(h=>{
     const d=new Date(h.time);
     const el=document.createElement('div');el.className='hist-item';
-    el.innerHTML=`<div class="hi-left"><div class="hi-loc">📍 Biên Hòa · Cấp ${h.road||'B'}</div>
+    el.innerHTML=`<div class="hi-left"><div class="hi-loc">📍 ${h.street||'Biên Hòa'} · Cấp ${h.road||'B'}</div>
     <div class="hi-sub">🛵 ${h.moto} &nbsp;🚗 ${h.car} &nbsp;🚌 ${h.bus} &nbsp;⚡ ${h.pcu} PCU</div>
     <div class="hi-badge ${h.status}">${lbl[h.status]||''}</div></div>
     <div><div class="hi-score" style="color:${col[h.status]}">${h.ds}%</div>
@@ -1085,13 +1090,7 @@ function renderChart(){
 // EXPORT
 // ═══════════════════════════════════════════════════
 function exportResult(){
-  const ov=document.getElementById('ov'),vid=document.getElementById('vid');
-  const c=document.createElement('canvas');c.width=ov.width;c.height=ov.height;
-  const ctx=c.getContext('2d');
-  if(vid.srcObject&&vid.readyState>=2){const s=Math.min(ov.width/vid.videoWidth,ov.height/vid.videoHeight);ctx.drawImage(vid,(ov.width-vid.videoWidth*s)/2,(ov.height-vid.videoHeight*s)/2,vid.videoWidth*s,vid.videoHeight*s);}
-  ctx.drawImage(ov,0,0);
-  const a=document.createElement('a');a.href=c.toDataURL('image/png');
-  a.download='TrafficAI_BienHoa_'+Date.now()+'.png';a.click();
+  autoSaveImage(currentStreet, new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})+' '+new Date().toLocaleDateString('vi-VN'));
 }
 
 // ═══════════════════════════════════════════════════
@@ -1120,6 +1119,65 @@ function setRoad(r){
   ['A','X','B','C'].forEach(x=>{const el=document.getElementById('r'+x);if(el)el.classList.toggle('on',x===(r==='auto'?'X':r));});
 }
 function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+
+// ═══════════════════════════════════════════════════
+// GPS + TÊN ĐƯỜNG
+// ═══════════════════════════════════════════════════
+async function getStreetName(){
+  return new Promise(resolve=>{
+    if(!navigator.geolocation){resolve(null);return;}
+    navigator.geolocation.getCurrentPosition(async pos=>{
+      currentLat=pos.coords.latitude;
+      currentLng=pos.coords.longitude;
+      try{
+        const res=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${currentLat}&lon=${currentLng}&format=json&accept-language=vi`,
+          {headers:{'User-Agent':'TrafficAI-BienHoa/1.0'}});
+        const data=await res.json();
+        const addr=data.address||{};
+        const street=addr.road||addr.pedestrian||addr.path||addr.highway||'';
+        const ward=addr.suburb||addr.quarter||addr.neighbourhood||'';
+        const city=addr.city||addr.town||addr.county||'Biên Hòa';
+        currentStreet=street?`${street}${ward?', '+ward:''}${city?', '+city:''}`:'Biên Hòa, Đồng Nai';
+        resolve(currentStreet);
+      }catch(e){resolve(null);}
+    },err=>{resolve(null);},{timeout:5000,maximumAge:30000});
+  });
+}
+
+// Tự động lưu ảnh với tên đường và timestamp
+function autoSaveImage(streetName,timestamp){
+  const ov=document.getElementById('ov');
+  const preview=document.getElementById('upload-preview');
+  const vid=document.getElementById('vid');
+  const c=document.createElement('canvas');
+  c.width=ov.width;c.height=ov.height;
+  const ctx=c.getContext('2d');
+  // Vẽ ảnh/video nền
+  if(preview&&preview.style.display!=='none'&&preview.src){
+    ctx.drawImage(preview,0,0,c.width,c.height);
+  } else if(vid.srcObject&&vid.readyState>=2){
+    const s=Math.min(ov.width/vid.videoWidth,ov.height/vid.videoHeight);
+    ctx.drawImage(vid,(ov.width-vid.videoWidth*s)/2,(ov.height-vid.videoHeight*s)/2,vid.videoWidth*s,vid.videoHeight*s);
+  }
+  // Vẽ bounding boxes
+  ctx.drawImage(ov,0,0);
+  // Vẽ watermark tên đường + thời gian
+  const label=`📍 ${streetName||currentStreet} · ${timestamp}`;
+  ctx.font='bold 12px -apple-system,sans-serif';
+  const tw=ctx.measureText(label).width+16;
+  ctx.fillStyle='rgba(0,0,0,0.55)';
+  ctx.fillRect(0,c.height-28,tw,28);
+  ctx.fillStyle='#fff';
+  ctx.fillText(label,8,c.height-10);
+  // Tải xuống
+  const safeName=(streetName||'BienHoa').replace(/[^a-zA-Z0-9À-ỹ\s]/g,'').replace(/\s+/g,'_').substring(0,30);
+  const ts=new Date(timestamp||Date.now());
+  const tsStr=`${ts.getFullYear()}${String(ts.getMonth()+1).padStart(2,'0')}${String(ts.getDate()).padStart(2,'0')}_${String(ts.getHours()).padStart(2,'0')}${String(ts.getMinutes()).padStart(2,'0')}`;
+  const a=document.createElement('a');
+  a.href=c.toDataURL('image/jpeg',0.92);
+  a.download=`TrafficAI_${safeName}_${tsStr}.jpg`;
+  a.click();
+}
 
 // Dark mode
 let isDark=window.matchMedia('(prefers-color-scheme: dark)').matches;
