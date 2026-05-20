@@ -1149,14 +1149,13 @@ async function getStreetName(){
       currentLat=pos.coords.latitude;
       currentLng=pos.coords.longitude;
       try{
-        const res=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${currentLat}&lon=${currentLng}&format=json&accept-language=vi`,
-          {headers:{'User-Agent':'TrafficAI-BienHoa/1.0'}});
+        // Thử BigDataCloud API (không bị CORS)
+        const res=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${currentLat}&longitude=${currentLng}&localityLanguage=vi`);
         const data=await res.json();
-        const addr=data.address||{};
-        const street=addr.road||addr.pedestrian||addr.path||addr.highway||'';
-        const ward=addr.suburb||addr.quarter||addr.neighbourhood||'';
-        const city=addr.city||addr.town||addr.county||'Biên Hòa';
-        currentStreet=street?`${street}${ward?', '+ward:''}${city?', '+city:''}`:'Biên Hòa, Đồng Nai';
+        const street=data.localityInfo?.administrative?.find(a=>a.adminLevel>=8)?.name||'';
+        const ward=data.locality||data.city||'';
+        const city=data.principalSubdivision||'Đồng Nai';
+        currentStreet=ward?`${ward}, ${city}`:(street||'Biên Hòa, Đồng Nai');
         resolve(currentStreet);
       }catch(e){resolve(null);}
     },err=>{resolve(null);},{timeout:5000,maximumAge:30000});
