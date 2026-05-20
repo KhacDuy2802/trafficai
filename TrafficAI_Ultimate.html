@@ -300,8 +300,10 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
       </div>
     </div>
 
-    <div class="meta-row" id="meta-row" style="display:none">
-      <div class="meta-chip">📍 <span id="meta-loc">Biên Hòa, Đồng Nai</span></div>
+    <div class="meta-row" id="meta-row">
+      <div class="meta-chip" id="meta-loc-chip" onclick="requestLocation()" style="cursor:pointer;flex:2">
+        📍 <span id="meta-loc">Nhấn để lấy vị trí</span>
+      </div>
       <div class="meta-chip">🕐 <span id="meta-time">–</span></div>
     </div>
     <div class="alert gn" id="al">
@@ -1123,6 +1125,22 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
 // ═══════════════════════════════════════════════════
 // GPS + TÊN ĐƯỜNG
 // ═══════════════════════════════════════════════════
+function requestLocation(){
+  const locEl=document.getElementById('meta-loc');
+  locEl.textContent='Đang lấy vị trí...';
+  getStreetName().then(name=>{
+    if(name){
+      currentStreet=name;
+      locEl.textContent=name;
+      const locInput=document.getElementById('rpt-loc');
+      if(locInput)locInput.value=name;
+    } else {
+      locEl.textContent='Không lấy được vị trí';
+      setTimeout(()=>{locEl.textContent=currentStreet;},2000);
+    }
+  });
+}
+
 async function getStreetName(){
   return new Promise(resolve=>{
     if(!navigator.geolocation){resolve(null);return;}
