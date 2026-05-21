@@ -1400,12 +1400,11 @@ restoreHistory();
 window.addEventListener('load',()=>{
   resizeOv();
   loadModel();
-  // Hiện login modal ngay lập tức
-  document.getElementById('login-modal').style.display='flex';
-  // Ẩn nếu đã đăng nhập
-  auth.onAuthStateChanged(u=>{
-    if(u) document.getElementById('login-modal').style.display='none';
-  });
+  // Hiện login modal ngay lập tức - không đợi Firebase
+  setTimeout(()=>{
+    const modal=document.getElementById('login-modal');
+    if(modal)modal.style.display='flex';
+  },300);
 });
 </script>
 </body>
