@@ -1396,7 +1396,17 @@ if(/iphone|ipad|ipod/i.test(navigator.userAgent)&&!window.navigator.standalone)
 
 // Init
 renderHistory();
-window.addEventListener('load',()=>{resizeOv();loadModel();});
+restoreHistory();
+window.addEventListener('load',()=>{
+  resizeOv();
+  loadModel();
+  // Hiện login modal ngay lập tức
+  document.getElementById('login-modal').style.display='flex';
+  // Ẩn nếu đã đăng nhập
+  auth.onAuthStateChanged(u=>{
+    if(u) document.getElementById('login-modal').style.display='none';
+  });
+});
 </script>
 </body>
 </html>
