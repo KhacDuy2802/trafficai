@@ -180,6 +180,20 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 /* Splash float animation */
 @keyframes floatIcon{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 
+/* Login */
+.login-modal{position:fixed;inset:0;z-index:998;background:rgba(0,0,0,.7);backdrop-filter:blur(16px);display:flex;align-items:center;justify-content:center;padding:24px}
+.login-box{background:var(--card);border-radius:20px;padding:28px 24px;width:100%;max-width:320px;text-align:center}
+.login-avatar{width:48px;height:48px;border-radius:50%;border:2px solid var(--bd2);margin:0 auto 10px}
+.login-name{font-size:14px;font-weight:600;color:var(--tx);margin-bottom:2px}
+.login-email{font-size:11px;color:var(--tx3);margin-bottom:14px}
+.btn-google{width:100%;padding:12px;background:#fff;color:#333;border:none;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px}
+.btn-google img{width:18px;height:18px}
+.btn-skip-login{width:100%;padding:8px;background:none;color:var(--tx3);border:none;font-size:11px;cursor:pointer}
+.user-chip{display:flex;align-items:center;gap:6px;background:var(--card2);border-radius:20px;padding:3px 10px 3px 4px;cursor:pointer}
+.user-chip img{width:22px;height:22px;border-radius:50%}
+.user-chip span{font-size:11px;font-weight:600;color:var(--tx);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sync-badge{font-size:9px;background:#34c759;color:#fff;border-radius:4px;padding:1px 4px;margin-left:2px}
+
 /* Accuracy badge */
 .acc-badge{display:inline-flex;align-items:center;gap:3px;background:rgba(52,199,89,.12);color:#34c759;border-radius:6px;padding:2px 6px;font-size:9px;font-weight:600;margin-left:4px}
 
@@ -193,6 +207,10 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .export-row .export-btn{margin-bottom:0;flex:1}
 .btn-csv{background:rgba(52,199,89,.1);color:#34c759;border:1.5px solid rgba(52,199,89,.2)}
 </style>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 </head>
 <body>
 
@@ -200,6 +218,34 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   <span style="font-size:18px">📲</span>
   <p><strong>Thêm vào màn hình chính</strong>Share → Add to Home Screen</p>
   <button onclick="this.parentElement.style.display='none'">✕</button>
+</div>
+
+<!-- LOGIN MODAL -->
+<div id="login-modal" class="login-modal" style="display:none">
+  <div class="login-box">
+    <div style="font-size:40px;margin-bottom:10px">🚦</div>
+    <div style="font-size:18px;font-weight:700;margin-bottom:4px">TrafficAI Biên Hòa</div>
+    <div style="font-size:11px;color:var(--tx3);margin-bottom:20px">Đăng nhập để đồng bộ dữ liệu giữa các thiết bị</div>
+    <button class="btn-google" onclick="signInGoogle()">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
+      Đăng nhập bằng Google
+    </button>
+    <button class="btn-skip-login" onclick="skipLogin()">Bỏ qua, dùng offline</button>
+  </div>
+</div>
+
+<!-- USER PANEL (khi đã đăng nhập) -->
+<div id="user-panel" class="login-modal" style="display:none">
+  <div class="login-box">
+    <img id="up-avatar" class="login-avatar" src="" alt="">
+    <div class="login-name" id="up-name"></div>
+    <div class="login-email" id="up-email"></div>
+    <div style="background:rgba(52,199,89,.1);border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:#34c759">
+      ✅ Dữ liệu đang được đồng bộ Firebase
+    </div>
+    <button onclick="signOut()" style="width:100%;padding:10px;background:rgba(255,59,48,.1);color:#ff3b30;border:1.5px solid rgba(255,59,48,.2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px">Đăng xuất</button>
+    <button onclick="document.getElementById('user-panel').style.display='none'" class="btn-skip-login">Đóng</button>
+  </div>
 </div>
 
 <!-- SPLASH -->
@@ -481,6 +527,90 @@ const CONF=0.15,IOU=0.35,SZ=640;
 let stream=null,forced=null,busy=false;
 let ortSession=null,modelReady=false;
 let appHistory=JSON.parse(localStorage.getItem('tai_hist')||'[]');
+// ═══════════════════════════════════════════════════
+// FIREBASE CONFIG
+// ═══════════════════════════════════════════════════
+const firebaseConfig={
+  apiKey:"AIzaSyDA72laYgh480x9ZMPVpMJ4QEdcHjdsYhw",
+  authDomain:"traffical-bienhoa-khacduy.firebaseapp.com",
+  databaseURL:"https://traffical-bienhoa-khacduy-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"traffical-bienhoa-khacduy",
+  storageBucket:"traffical-bienhoa-khacduy.firebasestorage.app",
+  messagingSenderId:"258796721959",
+  appId:"1:258796721959:web:863cabde5d5d08e365bb02"
+};
+firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth();
+const db=firebase.database();
+let currentUser=null;
+
+// Auth state listener
+auth.onAuthStateChanged(user=>{
+  currentUser=user;
+  if(user){
+    // Hiện user chip
+    document.getElementById('user-chip').style.display='flex';
+    document.getElementById('chip-avatar').src=user.photoURL||'';
+    document.getElementById('chip-name').textContent=user.displayName?.split(' ').pop()||'';
+    document.getElementById('up-avatar').src=user.photoURL||'';
+    document.getElementById('up-name').textContent=user.displayName||'';
+    document.getElementById('up-email').textContent=user.email||'';
+    // Tải lịch sử từ Firebase
+    loadHistoryFromFirebase(user.uid);
+  } else {
+    document.getElementById('user-chip').style.display='none';
+  }
+});
+
+function signInGoogle(){
+  const provider=new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).then(()=>{
+    document.getElementById('login-modal').style.display='none';
+  }).catch(e=>alert('Lỗi đăng nhập: '+e.message));
+}
+
+function signOut(){
+  auth.signOut().then(()=>{
+    document.getElementById('user-panel').style.display='none';
+    document.getElementById('user-chip').style.display='none';
+  });
+}
+
+function skipLogin(){
+  document.getElementById('login-modal').style.display='none';
+}
+
+function showUserPanel(){
+  document.getElementById('user-panel').style.display='flex';
+}
+
+// Lưu history lên Firebase
+function syncToFirebase(entry){
+  if(!currentUser)return;
+  const ref=db.ref(`users/${currentUser.uid}/history`);
+  ref.push(entry);
+}
+
+// Tải history từ Firebase
+function loadHistoryFromFirebase(uid){
+  const ref=db.ref(`users/${uid}/history`);
+  ref.orderByChild('time').limitToLast(50).once('value',snap=>{
+    const data=snap.val();
+    if(!data)return;
+    const fbHistory=Object.values(data).sort((a,b)=>b.time-a.time);
+    // Merge với local history
+    const merged=[...fbHistory,...appHistory].reduce((acc,h)=>{
+      if(!acc.find(x=>Math.abs(x.time-h.time)<1000))acc.push(h);
+      return acc;
+    },[]).sort((a,b)=>b.time-a.time).slice(0,50);
+    appHistory=merged;
+    try{localStorage.setItem('tai_hist',JSON.stringify(appHistory));}catch(e){}
+    renderHistory();
+    renderChart();
+    setStatus('YOLO sẵn sàng · ☁️ Đã đồng bộ '+fbHistory.length+' bản ghi');
+  });
+}
+
 let apiKey='';
 let currentStreet='Biên Hòa, Đồng Nai';
 let currentLat=null,currentLng=null;
@@ -850,6 +980,8 @@ function saveHistory(r,t){
   const data=JSON.stringify(appHistory);
   try{localStorage.setItem('tai_hist',data);}catch(e){}
   try{sessionStorage.setItem('tai_hist',data);}catch(e){}
+  // Đồng bộ lên Firebase
+  syncToFirebase(entry);
   // Lưu backup vào cookie (7 ngày)
   try{
     const d=new Date();d.setDate(d.getDate()+7);
