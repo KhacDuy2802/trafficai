@@ -544,21 +544,26 @@ const auth=firebase.auth();
 const db=firebase.database();
 let currentUser=null;
 
-// Auth state listener
 auth.onAuthStateChanged(user=>{
   currentUser=user;
+  const chip=document.getElementById('user-chip');
+  const modal=document.getElementById('login-modal');
   if(user){
-    // Hiện user chip
-    document.getElementById('user-chip').style.display='flex';
-    document.getElementById('chip-avatar').src=user.photoURL||'';
-    document.getElementById('chip-name').textContent=user.displayName?.split(' ').pop()||'';
-    document.getElementById('up-avatar').src=user.photoURL||'';
-    document.getElementById('up-name').textContent=user.displayName||'';
-    document.getElementById('up-email').textContent=user.email||'';
-    // Tải lịch sử từ Firebase
+    if(chip){
+      chip.style.display='flex';
+      document.getElementById('chip-avatar').src=user.photoURL||'';
+      document.getElementById('chip-name').textContent=user.displayName?.split(' ').pop()||'';
+    }
+    const upAvatar=document.getElementById('up-avatar');
+    if(upAvatar){
+      upAvatar.src=user.photoURL||'';
+      document.getElementById('up-name').textContent=user.displayName||'';
+      document.getElementById('up-email').textContent=user.email||'';
+    }
+    if(modal)modal.style.display='none';
     loadHistoryFromFirebase(user.uid);
   } else {
-    document.getElementById('user-chip').style.display='none';
+    if(chip)chip.style.display='none';
   }
 });
 
