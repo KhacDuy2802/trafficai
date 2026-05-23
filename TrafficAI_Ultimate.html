@@ -660,6 +660,7 @@ function signOut(){
   auth.signOut().then(()=>{
     document.getElementById('user-panel').style.display='none';
     document.getElementById('user-chip').style.display='none';
+    document.getElementById('login-modal').style.display='flex';
   });
 }
 
