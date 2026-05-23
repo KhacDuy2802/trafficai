@@ -575,6 +575,7 @@ firebase.initializeApp(firebaseConfig);
 const auth=firebase.auth();
 const db=firebase.database();
 let currentUser=null;
+let authReady=false; // Flag: Firebase đã check xong chưa
 
 // Xử lý kết quả redirect (sau khi đăng nhập Google quay về)
 auth.getRedirectResult().then(result=>{
@@ -591,6 +592,7 @@ auth.onAuthStateChanged(user=>{
   if(user){
     // Ẩn login modal ngay khi có user
     if(modal)modal.style.display='none';
+    authReady=true;
     if(chip){
       chip.style.display='flex';
       const avatar=document.getElementById('chip-avatar');
@@ -619,6 +621,12 @@ auth.onAuthStateChanged(user=>{
     loadHistoryFromFirebase(user.uid);
   } else {
     if(chip)chip.style.display='none';
+    // Hiện login modal chỉ khi đã check xong (không phải lúc mới load)
+    if(authReady){
+      const modal2=document.getElementById('login-modal');
+      if(modal2)modal2.style.display='flex';
+    }
+    authReady=true;
   }
 });
 
