@@ -226,7 +226,7 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
     <div style="font-size:40px;margin-bottom:10px">🚦</div>
     <div style="font-size:18px;font-weight:700;margin-bottom:4px">TrafficAI Biên Hòa</div>
     <div style="font-size:11px;color:var(--tx3);margin-bottom:16px">Đăng nhập để đồng bộ dữ liệu giữa các thiết bị</div>
-    <input id="login-email" type="email" placeholder="Email" autocomplete="email"
+    <input id="login-email" type="text" placeholder="Email hoặc số điện thoại" autocomplete="username"
       style="width:100%;padding:11px 12px;border-radius:10px;border:1.5px solid var(--bd2);background:var(--card2);color:var(--tx);font-size:13px;outline:none;box-sizing:border-box;margin-bottom:8px;font-family:var(--f)">
     <input id="login-pass" type="password" placeholder="Mật khẩu" autocomplete="current-password"
       style="width:100%;padding:11px 12px;border-radius:10px;border:1.5px solid var(--bd2);background:var(--card2);color:var(--tx);font-size:13px;outline:none;box-sizing:border-box;margin-bottom:8px;font-family:var(--f)">
@@ -683,15 +683,20 @@ function doRegister(){
 }
 
 function signInEmail(){
-  const email=document.getElementById('login-email').value.trim();
+  const account=document.getElementById('login-email').value.trim();
   const pass=document.getElementById('login-pass').value;
   const err=document.getElementById('login-err');
-  if(!email||!pass){err.textContent='Vui lòng nhập email và mật khẩu';err.style.display='block';return;}
+  if(!account||!pass){err.textContent='Vui lòng nhập đầy đủ thông tin';err.style.display='block';return;}
   err.style.display='none';
+  // Nếu là số điện thoại thì chuyển thành email giả
+  let email=account;
+  if(/^\d+$/.test(account.replace(/[+\s-]/g,''))){
+    email=account.replace(/\s/g,'')+'@trafficai.vn';
+  }
   auth.signInWithEmailAndPassword(email,pass).then(()=>{
     document.getElementById('login-modal').style.display='none';
   }).catch(e=>{
-    const msg={'auth/user-not-found':'Email chưa đăng ký','auth/wrong-password':'Sai mật khẩu','auth/invalid-email':'Email không hợp lệ','auth/invalid-credential':'Email hoặc mật khẩu không đúng'};
+    const msg={'auth/user-not-found':'Tài khoản không tồn tại','auth/wrong-password':'Sai mật khẩu','auth/invalid-email':'Email không hợp lệ','auth/invalid-credential':'Email/SĐT hoặc mật khẩu không đúng'};
     err.textContent=msg[e.code]||e.message;err.style.display='block';
   });
 }
