@@ -222,7 +222,7 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 
 <!-- LOGIN MODAL -->
 <div id="login-modal" class="login-modal" style="display:none">
-  <div class="login-box">
+  <div class="login-box" id="login-form">
     <div style="font-size:40px;margin-bottom:10px">🚦</div>
     <div style="font-size:18px;font-weight:700;margin-bottom:4px">TrafficAI Biên Hòa</div>
     <div style="font-size:11px;color:var(--tx3);margin-bottom:16px">Đăng nhập để đồng bộ dữ liệu giữa các thiết bị</div>
@@ -232,12 +232,28 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
       style="width:100%;padding:11px 12px;border-radius:10px;border:1.5px solid var(--bd2);background:var(--card2);color:var(--tx);font-size:13px;outline:none;box-sizing:border-box;margin-bottom:8px;font-family:var(--f)">
     <div id="login-err" style="color:#ff3b30;font-size:11px;margin-bottom:8px;display:none;text-align:left"></div>
     <button onclick="signInEmail()" style="width:100%;padding:12px;background:#007aff;color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px">Đăng nhập</button>
-    <button onclick="signUpEmail()" style="width:100%;padding:10px;background:rgba(0,122,255,.1);color:#007aff;border:1.5px solid rgba(0,122,255,.2);border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px">Tạo tài khoản mới</button>
+    <button onclick="showRegisterForm()" style="width:100%;padding:10px;background:rgba(0,122,255,.1);color:#007aff;border:1.5px solid rgba(0,122,255,.2);border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px">Tạo tài khoản mới</button>
     <button class="btn-google" onclick="signInGoogle()" style="margin-bottom:8px">
       <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
       Tiếp tục bằng Google
     </button>
     <button class="btn-skip-login" onclick="skipLogin()">Bỏ qua, dùng offline</button>
+  </div>
+
+  <!-- Form đăng ký -->
+  <div class="login-box" id="register-form" style="display:none">
+    <div style="font-size:40px;margin-bottom:10px">📝</div>
+    <div style="font-size:18px;font-weight:700;margin-bottom:4px">Tạo tài khoản</div>
+    <div style="font-size:11px;color:var(--tx3);margin-bottom:16px">Điền thông tin để đăng ký</div>
+    <input id="reg-account" type="text" placeholder="Email hoặc số điện thoại" autocomplete="username"
+      style="width:100%;padding:11px 12px;border-radius:10px;border:1.5px solid var(--bd2);background:var(--card2);color:var(--tx);font-size:13px;outline:none;box-sizing:border-box;margin-bottom:8px;font-family:var(--f)">
+    <input id="reg-pass" type="password" placeholder="Nhập mật khẩu" autocomplete="new-password"
+      style="width:100%;padding:11px 12px;border-radius:10px;border:1.5px solid var(--bd2);background:var(--card2);color:var(--tx);font-size:13px;outline:none;box-sizing:border-box;margin-bottom:8px;font-family:var(--f)">
+    <input id="reg-pass2" type="password" placeholder="Nhập lại mật khẩu" autocomplete="new-password"
+      style="width:100%;padding:11px 12px;border-radius:10px;border:1.5px solid var(--bd2);background:var(--card2);color:var(--tx);font-size:13px;outline:none;box-sizing:border-box;margin-bottom:8px;font-family:var(--f)">
+    <div id="reg-err" style="color:#ff3b30;font-size:11px;margin-bottom:8px;display:none;text-align:left"></div>
+    <button onclick="doRegister()" style="width:100%;padding:12px;background:#34c759;color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px">Tạo tài khoản</button>
+    <button onclick="showLoginForm()" style="width:100%;padding:10px;background:none;color:var(--tx3);border:none;font-size:12px;cursor:pointer">← Quay lại đăng nhập</button>
   </div>
 </div>
 
@@ -629,6 +645,42 @@ auth.onAuthStateChanged(user=>{
     authReady=true;
   }
 });
+
+function showRegisterForm(){
+  document.getElementById('login-form').style.display='none';
+  document.getElementById('register-form').style.display='block';
+  document.getElementById('reg-err').style.display='none';
+}
+
+function showLoginForm(){
+  document.getElementById('register-form').style.display='none';
+  document.getElementById('login-form').style.display='block';
+  document.getElementById('login-err').style.display='none';
+}
+
+function doRegister(){
+  const account=document.getElementById('reg-account').value.trim();
+  const pass=document.getElementById('reg-pass').value;
+  const pass2=document.getElementById('reg-pass2').value;
+  const err=document.getElementById('reg-err');
+  err.style.display='none';
+  if(!account){err.textContent='Vui lòng nhập email hoặc số điện thoại';err.style.display='block';return;}
+  if(!pass){err.textContent='Vui lòng nhập mật khẩu';err.style.display='block';return;}
+  if(pass.length<6){err.textContent='Mật khẩu phải ít nhất 6 ký tự';err.style.display='block';return;}
+  if(pass!==pass2){err.textContent='Mật khẩu nhập lại không khớp';err.style.display='block';return;}
+  // Nếu là số điện thoại thì chuyển thành email giả
+  let email=account;
+  if(/^\d+$/.test(account.replace(/[+\s-]/g,''))){
+    email=account.replace(/\s/g,'')+'@trafficai.vn';
+  }
+  auth.createUserWithEmailAndPassword(email,pass).then(()=>{
+    document.getElementById('login-modal').style.display='none';
+    showLoginForm();
+  }).catch(e=>{
+    const msg={'auth/email-already-in-use':'Tài khoản đã tồn tại','auth/invalid-email':'Email không hợp lệ','auth/weak-password':'Mật khẩu quá yếu'};
+    err.textContent=msg[e.code]||e.message;err.style.display='block';
+  });
+}
 
 function signInEmail(){
   const email=document.getElementById('login-email').value.trim();
