@@ -374,8 +374,9 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
     </div>
 
     <div class="meta-row" id="meta-row">
-      <div class="meta-chip" id="meta-loc-chip" onclick="requestLocation()" style="cursor:pointer;flex:2">
-        📍 <span id="meta-loc">Nhấn để lấy vị trí</span>
+      <div class="meta-chip" id="meta-loc-chip" style="cursor:pointer;flex:2;position:relative">
+        📍 <span id="meta-loc" onclick="editStreetName()" title="Nhấn để chỉnh tên đường">Nhấn để lấy vị trí</span>
+        <button onclick="requestLocation()" style="background:none;border:none;font-size:10px;cursor:pointer;color:var(--ac);margin-left:4px;padding:0" title="Lấy GPS">📡</button>
       </div>
       <div class="meta-chip">🕐 <span id="meta-time">–</span></div>
     </div>
@@ -402,6 +403,7 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
       <div class="btns">
         <button class="btn btn-c" id="bcam" onclick="toggleCam()">📷 Camera</button>
         <button class="btn btn-a" id="bai" onclick="analyze()" disabled>🤖 Phân tích</button>
+        <button class="btn" id="b1shot" onclick="oneShot()" style="background:linear-gradient(135deg,#5856d6,#007aff);color:#fff;display:none">⚡ Chụp & Phân tích</button>
       </div>
       <button onclick="requestLocation()" style="background:var(--card2);border:none;border-radius:10px;padding:8px 10px;font-size:12px;font-weight:600;color:var(--tx);cursor:pointer;display:flex;align-items:center;gap:3px">📍<span>GPS</span></button>
       <label class="btn-u">📂<input type="file" accept="image/*" onchange="upload(this.files[0])"></label>
@@ -455,6 +457,18 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
         <div id="chart-pie-legend" style="font-size:11px;color:var(--tx2);line-height:2"></div>
       </div>
       <div id="chart-pie-empty" style="text-align:center;color:var(--tx3);font-size:11px;padding:20px">Chưa có dữ liệu</div>
+    </div>
+
+    <!-- Biểu đồ theo giờ -->
+    <div class="chart-sec">
+      <div class="cs-t">🕐 D-Score trung bình theo giờ trong ngày</div>
+      <canvas id="chart-hourly" height="110" style="width:100%;border-radius:8px"></canvas>
+      <div id="chart-hourly-empty" style="text-align:center;color:var(--tx3);font-size:11px;padding:16px">Cần ít nhất 5 lần đo</div>
+      <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+        <div style="font-size:10px;color:var(--tx3)">🔴 Cao điểm sáng (6-9h)</div>
+        <div style="font-size:10px;color:var(--tx3)">🟠 Cao điểm chiều (16-19h)</div>
+        <div style="font-size:10px;color:var(--tx3)">🟢 Giờ thấp điểm</div>
+      </div>
     </div>
 
     <!-- Tổng hợp -->
@@ -817,6 +831,7 @@ async function toggleCam(){
     document.getElementById('sl').style.display='block';
     document.getElementById('bcam').textContent='⏹ Dừng';
     document.getElementById('bai').disabled=false;
+    document.getElementById('b1shot').style.display='flex';
     document.getElementById('dot').classList.add('on');
     setStatus('Camera đang chạy · Biên Hòa');
   }catch(e){setAl('rd','🚫','Không truy cập được camera','Cài đặt → Safari → Camera → Cho phép');}
@@ -832,6 +847,35 @@ function stopCam(){
   document.getElementById('dot').classList.remove('on');
   setStatus(modelReady?'YOLO on-device sẵn sàng':'Claude Vision mode');
 }
+// Chụp & Phân tích 1 bước
+async function oneShot(){
+  if(busy||!stream)return;
+  // Chụp frame từ video
+  const vid=document.getElementById('vid');
+  const c=document.createElement('canvas');
+  c.width=vid.videoWidth;c.height=vid.videoHeight;
+  c.getContext('2d').drawImage(vid,0,0);
+  // Hiện ảnh vừa chụp
+  const url=c.toDataURL('image/jpeg',0.92);
+  const preview=document.getElementById('upload-preview');
+  preview.src=url;preview.style.display='block';
+  document.getElementById('vid').style.display='none';
+  // Dừng camera
+  stream?.getTracks().forEach(t=>t.stop());stream=null;
+  document.getElementById('vid').srcObject=null;
+  document.getElementById('bcam').textContent='📷 Camera';
+  document.getElementById('b1shot').style.display='none';
+  // Phân tích ngay
+  const b64=url.split(',')[1];
+  const imgData=c.getContext('2d').getImageData(0,0,c.width,c.height);
+  setStatus('⚡ Đang phân tích...');
+  if(modelReady){
+    await runYOLO_full(imgData,c.width,c.height);
+  } else {
+    await runClaude(b64,'image/jpeg',c.width,c.height);
+  }
+}
+
 function resizeOv(){const a=document.getElementById('cam'),c=document.getElementById('ov');c.width=a.clientWidth;c.height=a.clientHeight;}
 window.addEventListener('resize',resizeOv);
 
@@ -1468,6 +1512,61 @@ function renderChart(){
     });
   }
 
+  // ── Biểu đồ theo giờ ──
+  const c4=document.getElementById('chart-hourly');
+  if(c4&&total>=3){
+    c4.style.display='block';
+    document.getElementById('chart-hourly-empty').style.display='none';
+    c4.width=c4.offsetWidth||320;
+    const ctx4=c4.getContext('2d');
+    const W=c4.width,H=c4.height,pad={t:10,r:10,b:24,l:28};
+    ctx4.clearRect(0,0,W,H);
+    // Tính D-Score TB theo giờ
+    const hourData=Array(24).fill(null).map(()=>({sum:0,count:0}));
+    appHistory.forEach(h=>{
+      const hr=new Date(h.time).getHours();
+      hourData[hr].sum+=h.ds;hourData[hr].count++;
+    });
+    const hrs=hourData.map((d,i)=>({hr:i,avg:d.count?Math.round(d.sum/d.count):null}));
+    const validHrs=hrs.filter(h=>h.avg!==null);
+    if(validHrs.length>=2){
+      const maxV=Math.max(...validHrs.map(h=>h.avg),1);
+      const allHrs=Array.from({length:24},(_,i)=>i);
+      const xStep=(W-pad.l-pad.r)/(23);
+      // Grid
+      for(let i=0;i<=4;i++){
+        const y=pad.t+(H-pad.t-pad.b)*(1-i/4);
+        ctx4.strokeStyle=gridColor;ctx4.lineWidth=1;
+        ctx4.beginPath();ctx4.moveTo(pad.l,y);ctx4.lineTo(W-pad.r,y);ctx4.stroke();
+        ctx4.fillStyle=textColor;ctx4.font='8px sans-serif';ctx4.textAlign='right';
+        ctx4.fillText(Math.round(maxV*i/4)+'%',pad.l-3,y+3);
+      }
+      // Bars
+      const bw=Math.max(2,(W-pad.l-pad.r)/24-1);
+      allHrs.forEach(hr=>{
+        const d=hourData[hr];
+        if(!d.count)return;
+        const avg=Math.round(d.sum/d.count);
+        const x=pad.l+hr*xStep;
+        const bh=(avg/maxV)*(H-pad.t-pad.b);
+        const isPeak=(hr>=6&&hr<=9)||(hr>=16&&hr<=19);
+        ctx4.fillStyle=isPeak?(avg>=60?'#ff3b30':'#ff9500'):'#34c759';
+        ctx4.globalAlpha=0.85;
+        ctx4.fillRect(x-bw/2,H-pad.b-bh,bw,bh);
+        ctx4.globalAlpha=1;
+      });
+      // X labels
+      [0,6,9,12,16,19,23].forEach(hr=>{
+        const x=pad.l+hr*xStep;
+        ctx4.fillStyle=textColor;ctx4.font='8px sans-serif';ctx4.textAlign='center';
+        ctx4.fillText(hr+'h',x,H-pad.b+10);
+      });
+    }
+  } else if(c4){
+    c4.style.display='none';
+    document.getElementById('chart-hourly-empty').style.display='block';
+  }
+
   // ── Biểu đồ 3: Pie chart tỉ lệ ──
   const c3=document.getElementById('chart-pie');
   if(c3){
@@ -1574,6 +1673,17 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
 // ═══════════════════════════════════════════════════
 // GPS + TÊN ĐƯỜNG
 // ═══════════════════════════════════════════════════
+function editStreetName(){
+  const cur=document.getElementById('meta-loc').textContent;
+  const input=prompt('Nhập tên đường/địa điểm:',cur==='Nhấn để lấy vị trí'?'':cur);
+  if(input!==null&&input.trim()){
+    currentStreet=input.trim();
+    document.getElementById('meta-loc').textContent=currentStreet;
+    const locInput=document.getElementById('rpt-loc');
+    if(locInput)locInput.value=currentStreet;
+  }
+}
+
 function requestLocation(){
   const locEl=document.getElementById('meta-loc');
   locEl.textContent='Đang lấy vị trí...';
