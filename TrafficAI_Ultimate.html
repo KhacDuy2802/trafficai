@@ -565,6 +565,14 @@ const auth=firebase.auth();
 const db=firebase.database();
 let currentUser=null;
 
+// Xử lý kết quả redirect (sau khi đăng nhập Google quay về)
+auth.getRedirectResult().then(result=>{
+  if(result&&result.user){
+    const modal=document.getElementById('login-modal');
+    if(modal)modal.style.display='none';
+  }
+}).catch(e=>console.log('Redirect:',e.message));
+
 auth.onAuthStateChanged(user=>{
   currentUser=user;
   const chip=document.getElementById('user-chip');
@@ -590,9 +598,8 @@ auth.onAuthStateChanged(user=>{
 
 function signInGoogle(){
   const provider=new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(provider).then(()=>{
-    document.getElementById('login-modal').style.display='none';
-  }).catch(e=>alert('Lỗi đăng nhập: '+e.message));
+  // Dùng redirect thay popup - tương thích Safari iOS
+  auth.signInWithRedirect(provider).catch(e=>alert('Lỗi đăng nhập: '+e.message));
 }
 
 function signOut(){
