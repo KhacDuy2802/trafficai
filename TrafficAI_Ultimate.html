@@ -830,7 +830,7 @@ async function toggleCam(){
     document.getElementById('hud').style.display='flex';
     document.getElementById('sl').style.display='block';
     document.getElementById('bcam').textContent='⏹ Dừng';
-    document.getElementById('bai').style.display='none';
+    document.getElementById('bai').style.visibility='hidden';document.getElementById('bai').style.width='0';document.getElementById('bai').style.padding='0';document.getElementById('bai').style.margin='0';
     document.getElementById('b1shot').style.display='flex';
     document.getElementById('dot').classList.add('on');
     setStatus('Camera đang chạy · Biên Hòa');
@@ -865,7 +865,7 @@ async function oneShot(){
   document.getElementById('vid').srcObject=null;
   document.getElementById('bcam').textContent='📷 Camera';
   document.getElementById('b1shot').style.display='none';
-  document.getElementById('bai').style.display='flex';
+  document.getElementById('bai').style.visibility='visible';document.getElementById('bai').style.width='';document.getElementById('bai').style.padding='';document.getElementById('bai').style.margin='';
   // Phân tích ngay
   const b64=url.split(',')[1];
   const imgData=c.getContext('2d').getImageData(0,0,c.width,c.height);
