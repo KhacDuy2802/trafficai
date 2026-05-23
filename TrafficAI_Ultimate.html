@@ -578,6 +578,8 @@ auth.onAuthStateChanged(user=>{
   const chip=document.getElementById('user-chip');
   const modal=document.getElementById('login-modal');
   if(user){
+    // Ẩn login modal ngay khi có user
+    if(modal)modal.style.display='none';
     if(chip){
       chip.style.display='flex';
       document.getElementById('chip-avatar').src=user.photoURL||'';
