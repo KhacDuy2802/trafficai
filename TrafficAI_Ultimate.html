@@ -282,6 +282,10 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
       <div class="badge badge-ai" id="badge-ai">🧠 AI</div>
     </div>
     <button class="mode-btn" id="mode-btn" onclick="toggleMode()">🌙</button>
+    <div class="user-chip" id="user-chip" onclick="showUserPanel()" style="display:none">
+      <img id="chip-avatar" src="" alt="👤">
+      <span id="chip-name">Tôi</span>
+    </div>
   </div>
   <div class="hdr-sub" id="stat">Đang tải YOLO model...</div>
 </div>
@@ -589,8 +593,21 @@ auth.onAuthStateChanged(user=>{
     if(modal)modal.style.display='none';
     if(chip){
       chip.style.display='flex';
-      document.getElementById('chip-avatar').src=user.photoURL||'';
-      document.getElementById('chip-name').textContent=user.displayName?.split(' ').pop()||'';
+      const avatar=document.getElementById('chip-avatar');
+      const name=document.getElementById('chip-name');
+      if(user.photoURL){
+        avatar.src=user.photoURL;
+        avatar.style.display='block';
+        avatar.nextElementSibling&&(avatar.nextElementSibling.style.display='none');
+      } else {
+        // Hiện chữ cái đầu của email
+        avatar.style.display='none';
+        const initial=user.email?user.email[0].toUpperCase():'U';
+        const emailName=user.email?user.email.split('@')[0]:'Tôi';
+        chip.innerHTML='<div style="width:22px;height:22px;border-radius:50%;background:#007aff;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">'+initial+'</div><span>'+emailName+'</span>';
+        chip.onclick=showUserPanel;
+      }
+      if(name)name.textContent=(user.displayName?user.displayName.split(' ').pop():null)||(user.email?user.email.split('@')[0]:null)||'Tôi';
     }
     const upAvatar=document.getElementById('up-avatar');
     if(upAvatar){
