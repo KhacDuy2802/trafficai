@@ -830,8 +830,11 @@ async function toggleCam(){
     document.getElementById('hud').style.display='flex';
     document.getElementById('sl').style.display='block';
     document.getElementById('bcam').textContent='⏹ Dừng';
-    document.getElementById('bai').style.visibility='hidden';document.getElementById('bai').style.width='0';document.getElementById('bai').style.padding='0';document.getElementById('bai').style.margin='0';
-    document.getElementById('b1shot').style.display='flex';
+    const bai=document.getElementById('bai');
+    bai.disabled=false;
+    bai.textContent='⚡ Chụp';
+    bai.style.background='linear-gradient(135deg,#5856d6,#007aff)';
+    bai.onclick=oneShot;
     document.getElementById('dot').classList.add('on');
     setStatus('Camera đang chạy · Biên Hòa');
   }catch(e){setAl('rd','🚫','Không truy cập được camera','Cài đặt → Safari → Camera → Cho phép');}
@@ -864,8 +867,11 @@ async function oneShot(){
   stream?.getTracks().forEach(t=>t.stop());stream=null;
   document.getElementById('vid').srcObject=null;
   document.getElementById('bcam').textContent='📷 Camera';
-  document.getElementById('b1shot').style.display='none';
-  document.getElementById('bai').style.visibility='visible';document.getElementById('bai').style.width='';document.getElementById('bai').style.padding='';document.getElementById('bai').style.margin='';
+  const baiR=document.getElementById('bai');
+  baiR.disabled=false;
+  baiR.textContent='🤖 Phân tích';
+  baiR.style.background='';
+  baiR.onclick=analyze;
   // Phân tích ngay
   const b64=url.split(',')[1];
   const imgData=c.getContext('2d').getImageData(0,0,c.width,c.height);
