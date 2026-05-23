@@ -405,14 +405,34 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
     <p>Xu hướng mật độ giao thông Biên Hòa</p>
   </div>
   <div class="chart-scroll">
+
+    <!-- Biểu đồ 1: D-Score theo thời gian -->
     <div class="chart-sec">
-      <div class="cs-t">D-Score theo thời gian</div>
-      <div class="bar-chart" id="bar-chart">
-        <div style="width:100%;display:flex;align-items:center;justify-content:center;color:var(--tx3);font-size:11px">Chưa có dữ liệu</div>
-      </div>
+      <div class="cs-t">📈 D-Score theo thời gian</div>
+      <canvas id="chart-dscore" height="120" style="width:100%;border-radius:8px"></canvas>
+      <div id="chart-dscore-empty" style="text-align:center;color:var(--tx3);font-size:11px;padding:20px">Chưa có dữ liệu</div>
     </div>
+
+    <!-- Biểu đồ 2: Số xe theo từng lần đo -->
     <div class="chart-sec">
-      <div class="cs-t">Tổng hợp tất cả phân tích</div>
+      <div class="cs-t">🚗 Số xe theo từng lần đo</div>
+      <canvas id="chart-vehicles" height="120" style="width:100%;border-radius:8px"></canvas>
+      <div id="chart-vehicles-empty" style="text-align:center;color:var(--tx3);font-size:11px;padding:20px">Chưa có dữ liệu</div>
+    </div>
+
+    <!-- Biểu đồ 3: Tỉ lệ xe -->
+    <div class="chart-sec">
+      <div class="cs-t">🥧 Tỉ lệ xe máy / ô tô / xe lớn</div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <canvas id="chart-pie" width="100" height="100" style="flex-shrink:0"></canvas>
+        <div id="chart-pie-legend" style="font-size:11px;color:var(--tx2);line-height:2"></div>
+      </div>
+      <div id="chart-pie-empty" style="text-align:center;color:var(--tx3);font-size:11px;padding:20px">Chưa có dữ liệu</div>
+    </div>
+
+    <!-- Tổng hợp -->
+    <div class="chart-sec">
+      <div class="cs-t">📊 Tổng hợp tất cả phân tích</div>
       <div class="stat-grid">
         <div class="si"><div class="si-n" id="s-moto" style="color:#007aff">0</div><div class="si-l">🛵 Tổng xe máy</div></div>
         <div class="si"><div class="si-n" id="s-car" style="color:#ff9500">0</div><div class="si-l">🚗 Tổng ô tô</div></div>
@@ -420,6 +440,7 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
         <div class="si"><div class="si-n" id="s-count" style="color:#af52de">0</div><div class="si-l">📷 Số lần phân tích</div></div>
       </div>
     </div>
+
   </div>
 </div>
 
@@ -1210,17 +1231,151 @@ function renderChart(){
   document.getElementById('s-car').textContent=appHistory.reduce((s,h)=>s+h.car,0);
   document.getElementById('s-avg').textContent=total?Math.round(appHistory.reduce((s,h)=>s+h.ds,0)/total)+'%':'–';
   document.getElementById('s-count').textContent=total;
-  const bars=document.getElementById('bar-chart');
-  if(!total){bars.innerHTML='<div style="width:100%;display:flex;align-items:center;justify-content:center;color:var(--tx3);font-size:11px">Chưa có dữ liệu</div>';return;}
-  const last=appHistory.slice(0,12).reverse();
-  const maxDs=Math.max(...last.map(h=>h.ds),1);
+  if(!total){
+    ['chart-dscore','chart-vehicles','chart-pie'].forEach(id=>{
+      const c=document.getElementById(id);if(c)c.style.display='none';
+    });
+    ['chart-dscore-empty','chart-vehicles-empty','chart-pie-empty'].forEach(id=>{
+      const e=document.getElementById(id);if(e)e.style.display='block';
+    });
+    return;
+  }
+  ['chart-dscore-empty','chart-vehicles-empty','chart-pie-empty'].forEach(id=>{
+    const e=document.getElementById(id);if(e)e.style.display='none';
+  });
+
+  const last=appHistory.slice(0,20).reverse();
   const sCOL={gn:'#34c759',yw:'#ff9500',og:'#ff6b00',rd:'#ff3b30'};
-  bars.innerHTML=last.map(h=>{
-    const d=new Date(h.time);const pct=Math.max(4,(h.ds/maxDs)*100);
-    return`<div class="bar-col"><div class="bar-val" style="color:${sCOL[h.status]}">${h.ds}%</div>
-    <div class="bar" style="height:${pct}%;background:${sCOL[h.status]};opacity:.8"></div>
-    <div class="bar-lbl">${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}</div></div>`;
-  }).join('');
+  const isDark=document.documentElement.classList.contains('dark');
+  const gridColor=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.08)';
+  const textColor=isDark?'rgba(255,255,255,0.4)':'rgba(0,0,0,0.4)';
+
+  // ── Biểu đồ 1: D-Score line chart ──
+  const c1=document.getElementById('chart-dscore');
+  if(c1){
+    c1.style.display='block';
+    c1.width=c1.offsetWidth||320;
+    const ctx=c1.getContext('2d');
+    const W=c1.width,H=c1.height,pad={t:10,r:10,b:24,l:28};
+    ctx.clearRect(0,0,W,H);
+    const maxDs=Math.max(...last.map(h=>h.ds),1);
+    const xStep=(W-pad.l-pad.r)/(last.length-1||1);
+    // Grid
+    for(let i=0;i<=4;i++){
+      const y=pad.t+(H-pad.t-pad.b)*(1-i/4);
+      ctx.strokeStyle=gridColor;ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();
+      ctx.fillStyle=textColor;ctx.font='9px sans-serif';ctx.textAlign='right';
+      ctx.fillText(Math.round(maxDs*i/4)+'%',pad.l-3,y+3);
+    }
+    // Fill
+    ctx.beginPath();
+    last.forEach((h,i)=>{
+      const x=pad.l+i*xStep,y=pad.t+(H-pad.t-pad.b)*(1-h.ds/maxDs);
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.lineTo(pad.l+(last.length-1)*xStep,H-pad.b);
+    ctx.lineTo(pad.l,H-pad.b);ctx.closePath();
+    const grad=ctx.createLinearGradient(0,pad.t,0,H-pad.b);
+    grad.addColorStop(0,'rgba(52,199,89,0.3)');grad.addColorStop(1,'rgba(52,199,89,0)');
+    ctx.fillStyle=grad;ctx.fill();
+    // Line
+    ctx.beginPath();ctx.strokeStyle='#34c759';ctx.lineWidth=2;ctx.lineJoin='round';
+    last.forEach((h,i)=>{
+      const x=pad.l+i*xStep,y=pad.t+(H-pad.t-pad.b)*(1-h.ds/maxDs);
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    // Dots + labels
+    last.forEach((h,i)=>{
+      const x=pad.l+i*xStep,y=pad.t+(H-pad.t-pad.b)*(1-h.ds/maxDs);
+      ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);
+      ctx.fillStyle=sCOL[h.status]||'#34c759';ctx.fill();
+      if(i%Math.max(1,Math.floor(last.length/6))===0){
+        const d=new Date(h.time);
+        ctx.fillStyle=textColor;ctx.font='8px sans-serif';ctx.textAlign='center';
+        ctx.fillText(`${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`,x,H-pad.b+10);
+      }
+    });
+  }
+
+  // ── Biểu đồ 2: Số xe grouped bar ──
+  const c2=document.getElementById('chart-vehicles');
+  if(c2){
+    c2.style.display='block';
+    c2.width=c2.offsetWidth||320;
+    const ctx=c2.getContext('2d');
+    const W=c2.width,H=c2.height,pad={t:10,r:10,b:24,l:28};
+    ctx.clearRect(0,0,W,H);
+    const maxV=Math.max(...last.map(h=>Math.max(h.moto,h.car,h.bus)),1);
+    const grpW=(W-pad.l-pad.r)/last.length;
+    const barW=grpW/4;
+    // Grid
+    for(let i=0;i<=4;i++){
+      const y=pad.t+(H-pad.t-pad.b)*(1-i/4);
+      ctx.strokeStyle=gridColor;ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();
+      ctx.fillStyle=textColor;ctx.font='9px sans-serif';ctx.textAlign='right';
+      ctx.fillText(Math.round(maxV*i/4),pad.l-3,y+3);
+    }
+    last.forEach((h,i)=>{
+      const gx=pad.l+i*grpW+barW*0.3;
+      const colors=['#007aff','#ff9500','#ff3b30'];
+      [h.moto,h.car,h.bus].forEach((v,j)=>{
+        const bh=(v/maxV)*(H-pad.t-pad.b);
+        ctx.fillStyle=colors[j];ctx.globalAlpha=0.85;
+        ctx.fillRect(gx+j*barW,H-pad.b-bh,barW*0.85,bh);
+      });
+      ctx.globalAlpha=1;
+      if(i%Math.max(1,Math.floor(last.length/6))===0){
+        const d=new Date(h.time);
+        ctx.fillStyle=textColor;ctx.font='8px sans-serif';ctx.textAlign='center';
+        ctx.fillText(`${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`,gx+barW,H-pad.b+10);
+      }
+    });
+    // Legend
+    ctx.font='9px sans-serif';ctx.globalAlpha=1;
+    [['#007aff','Xe máy'],['#ff9500','Ô tô'],['#ff3b30','Xe lớn']].forEach(([c,l],i)=>{
+      ctx.fillStyle=c;ctx.fillRect(pad.l+i*60,2,8,8);
+      ctx.fillStyle=textColor;ctx.textAlign='left';ctx.fillText(l,pad.l+i*60+10,10);
+    });
+  }
+
+  // ── Biểu đồ 3: Pie chart tỉ lệ ──
+  const c3=document.getElementById('chart-pie');
+  if(c3){
+    c3.style.display='block';
+    const ctx=c3.getContext('2d');
+    const W=c3.width,H=c3.height;
+    ctx.clearRect(0,0,W,H);
+    const totalMoto=appHistory.reduce((s,h)=>s+h.moto,0);
+    const totalCar=appHistory.reduce((s,h)=>s+h.car,0);
+    const totalBus=appHistory.reduce((s,h)=>s+h.bus,0);
+    const sum=totalMoto+totalCar+totalBus||1;
+    const slices=[
+      {v:totalMoto,c:'#007aff',l:'Xe máy'},
+      {v:totalCar,c:'#ff9500',l:'Ô tô'},
+      {v:totalBus,c:'#ff3b30',l:'Xe lớn'}
+    ];
+    let angle=-Math.PI/2;
+    const cx=W/2,cy=H/2,r=Math.min(W,H)/2-4;
+    slices.forEach(s=>{
+      const sweep=s.v/sum*Math.PI*2;
+      ctx.beginPath();ctx.moveTo(cx,cy);
+      ctx.arc(cx,cy,r,angle,angle+sweep);
+      ctx.closePath();ctx.fillStyle=s.c;ctx.fill();
+      angle+=sweep;
+    });
+    // Donut hole
+    ctx.beginPath();ctx.arc(cx,cy,r*0.5,0,Math.PI*2);
+    ctx.fillStyle=isDark?'#1c1c1e':'#fff';ctx.fill();
+    // Legend
+    const legend=document.getElementById('chart-pie-legend');
+    if(legend)legend.innerHTML=slices.map(s=>
+      `<span style="color:${s.c}">●</span> ${s.l}: <b>${Math.round(s.v/sum*100)}%</b> (${s.v})<br>`
+    ).join('');
+    document.getElementById('chart-pie-empty').style.display='none';
+  }
 }
 
 // ═══════════════════════════════════════════════════
