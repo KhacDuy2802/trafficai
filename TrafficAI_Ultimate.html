@@ -225,10 +225,17 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   <div class="login-box">
     <div style="font-size:40px;margin-bottom:10px">🚦</div>
     <div style="font-size:18px;font-weight:700;margin-bottom:4px">TrafficAI Biên Hòa</div>
-    <div style="font-size:11px;color:var(--tx3);margin-bottom:20px">Đăng nhập để đồng bộ dữ liệu giữa các thiết bị</div>
-    <button class="btn-google" onclick="signInGoogle()">
+    <div style="font-size:11px;color:var(--tx3);margin-bottom:16px">Đăng nhập để đồng bộ dữ liệu giữa các thiết bị</div>
+    <input id="login-email" type="email" placeholder="Email" autocomplete="email"
+      style="width:100%;padding:11px 12px;border-radius:10px;border:1.5px solid var(--bd2);background:var(--card2);color:var(--tx);font-size:13px;outline:none;box-sizing:border-box;margin-bottom:8px;font-family:var(--f)">
+    <input id="login-pass" type="password" placeholder="Mật khẩu" autocomplete="current-password"
+      style="width:100%;padding:11px 12px;border-radius:10px;border:1.5px solid var(--bd2);background:var(--card2);color:var(--tx);font-size:13px;outline:none;box-sizing:border-box;margin-bottom:8px;font-family:var(--f)">
+    <div id="login-err" style="color:#ff3b30;font-size:11px;margin-bottom:8px;display:none;text-align:left"></div>
+    <button onclick="signInEmail()" style="width:100%;padding:12px;background:#007aff;color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px">Đăng nhập</button>
+    <button onclick="signUpEmail()" style="width:100%;padding:10px;background:rgba(0,122,255,.1);color:#007aff;border:1.5px solid rgba(0,122,255,.2);border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px">Tạo tài khoản mới</button>
+    <button class="btn-google" onclick="signInGoogle()" style="margin-bottom:8px">
       <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
-      Đăng nhập bằng Google
+      Tiếp tục bằng Google
     </button>
     <button class="btn-skip-login" onclick="skipLogin()">Bỏ qua, dùng offline</button>
   </div>
@@ -598,10 +605,38 @@ auth.onAuthStateChanged(user=>{
   }
 });
 
+function signInEmail(){
+  const email=document.getElementById('login-email').value.trim();
+  const pass=document.getElementById('login-pass').value;
+  const err=document.getElementById('login-err');
+  if(!email||!pass){err.textContent='Vui lòng nhập email và mật khẩu';err.style.display='block';return;}
+  err.style.display='none';
+  auth.signInWithEmailAndPassword(email,pass).then(()=>{
+    document.getElementById('login-modal').style.display='none';
+  }).catch(e=>{
+    const msg={'auth/user-not-found':'Email chưa đăng ký','auth/wrong-password':'Sai mật khẩu','auth/invalid-email':'Email không hợp lệ','auth/invalid-credential':'Email hoặc mật khẩu không đúng'};
+    err.textContent=msg[e.code]||e.message;err.style.display='block';
+  });
+}
+
+function signUpEmail(){
+  const email=document.getElementById('login-email').value.trim();
+  const pass=document.getElementById('login-pass').value;
+  const err=document.getElementById('login-err');
+  if(!email||!pass){err.textContent='Vui lòng nhập email và mật khẩu';err.style.display='block';return;}
+  if(pass.length<6){err.textContent='Mật khẩu phải ít nhất 6 ký tự';err.style.display='block';return;}
+  err.style.display='none';
+  auth.createUserWithEmailAndPassword(email,pass).then(()=>{
+    document.getElementById('login-modal').style.display='none';
+  }).catch(e=>{
+    const msg={'auth/email-already-in-use':'Email đã được sử dụng','auth/invalid-email':'Email không hợp lệ','auth/weak-password':'Mật khẩu quá yếu'};
+    err.textContent=msg[e.code]||e.message;err.style.display='block';
+  });
+}
+
 function signInGoogle(){
   const provider=new firebase.auth.GoogleAuthProvider();
-  // Dùng redirect thay popup - tương thích Safari iOS
-  auth.signInWithRedirect(provider).catch(e=>alert('Lỗi đăng nhập: '+e.message));
+  auth.signInWithRedirect(provider).catch(e=>alert('Lỗi: '+e.message));
 }
 
 function signOut(){
