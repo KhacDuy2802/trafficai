@@ -959,6 +959,8 @@ async function runYOLO_full(imgData,imgW,imgH){
     render(r,t);drawYOLO(boxes,r,t,imgW,imgH);
     saveHistory(r,t);
     setStatus(`YOLO ✓ · ${boxes.length} phương tiện · ${new Date().toLocaleTimeString('vi-VN')}`);
+    // Tự động lưu ảnh sau khi phân tích
+    setTimeout(()=>exportResult(),300);
   }catch(e){
     showProc(true,'Fallback Claude Vision...');
     const v=document.getElementById('vid');
