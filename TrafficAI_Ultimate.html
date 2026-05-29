@@ -781,6 +781,7 @@ function loadHistoryFromFirebase(uid){
 
 let apiKey='';
 let currentStreet='Biên Hòa, Đồng Nai';
+let lastImageDataURL=null; // Lưu ảnh gốc để export
 let currentLat=null,currentLng=null;
 
 // ═══════════════════════════════════════════════════
@@ -861,6 +862,7 @@ async function oneShot(){
   c.getContext('2d').drawImage(vid,0,0);
   // Hiện ảnh vừa chụp
   const url=c.toDataURL('image/jpeg',0.92);
+  lastImageDataURL=url;
   const preview=document.getElementById('upload-preview');
   preview.src=url;preview.style.display='block';
   document.getElementById('vid').style.display='none';
@@ -959,8 +961,6 @@ async function runYOLO_full(imgData,imgW,imgH){
     render(r,t);drawYOLO(boxes,r,t,imgW,imgH);
     saveHistory(r,t);
     setStatus(`YOLO ✓ · ${boxes.length} phương tiện · ${new Date().toLocaleTimeString('vi-VN')}`);
-    // Tự động lưu ảnh sau khi phân tích - dùng canvas riêng
-    setTimeout(()=>autoSaveWithBoxes(),500);
   }catch(e){
     showProc(true,'Fallback Claude Vision...');
     const v=document.getElementById('vid');
@@ -1625,8 +1625,12 @@ function autoSaveWithBoxes(){
   const c=document.createElement('canvas');
   c.width=ov.width;c.height=ov.height;
   const ctx=c.getContext('2d');
-  // Vẽ ảnh nền
-  if(preview&&preview.style.display!=='none'&&preview.src){
+  // Vẽ ảnh nền từ lastImageDataURL hoặc preview
+  if(lastImageDataURL){
+    const img=new Image();
+    img.src=lastImageDataURL;
+    if(img.complete){ctx.drawImage(img,0,0,c.width,c.height);}
+  } else if(preview&&preview.style.display!=='none'&&preview.src){
     ctx.drawImage(preview,0,0,c.width,c.height);
   } else if(vid.srcObject&&vid.readyState>=2){
     const s=Math.min(ov.width/vid.videoWidth,ov.height/vid.videoHeight);
@@ -1661,8 +1665,12 @@ function exportResult(){
   const c=document.createElement('canvas');
   c.width=ov.width;c.height=ov.height;
   const ctx=c.getContext('2d');
-  // Vẽ ảnh nền
-  if(preview&&preview.style.display!=='none'&&preview.src){
+  // Vẽ ảnh nền từ lastImageDataURL hoặc preview
+  if(lastImageDataURL){
+    const img=new Image();
+    img.src=lastImageDataURL;
+    if(img.complete){ctx.drawImage(img,0,0,c.width,c.height);}
+  } else if(preview&&preview.style.display!=='none'&&preview.src){
     ctx.drawImage(preview,0,0,c.width,c.height);
   } else if(vid.srcObject&&vid.readyState>=2){
     const s=Math.min(ov.width/vid.videoWidth,ov.height/vid.videoHeight);
