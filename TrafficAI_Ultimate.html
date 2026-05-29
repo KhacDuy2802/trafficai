@@ -959,8 +959,8 @@ async function runYOLO_full(imgData,imgW,imgH){
     render(r,t);drawYOLO(boxes,r,t,imgW,imgH);
     saveHistory(r,t);
     setStatus(`YOLO ✓ · ${boxes.length} phương tiện · ${new Date().toLocaleTimeString('vi-VN')}`);
-    // Tự động lưu ảnh sau khi phân tích
-    setTimeout(()=>exportResult(),300);
+    // Tự động lưu ảnh sau khi phân tích - dùng canvas riêng
+    setTimeout(()=>autoSaveWithBoxes(),500);
   }catch(e){
     showProc(true,'Fallback Claude Vision...');
     const v=document.getElementById('vid');
@@ -1617,6 +1617,42 @@ function renderChart(){
 // ═══════════════════════════════════════════════════
 // EXPORT
 // ═══════════════════════════════════════════════════
+function autoSaveWithBoxes(){
+  // Tạo canvas mới để lưu - không đụng canvas gốc
+  const ov=document.getElementById('ov');
+  const preview=document.getElementById('upload-preview');
+  const vid=document.getElementById('vid');
+  const c=document.createElement('canvas');
+  c.width=ov.width;c.height=ov.height;
+  const ctx=c.getContext('2d');
+  // Vẽ ảnh nền
+  if(preview&&preview.style.display!=='none'&&preview.src){
+    ctx.drawImage(preview,0,0,c.width,c.height);
+  } else if(vid.srcObject&&vid.readyState>=2){
+    const s=Math.min(ov.width/vid.videoWidth,ov.height/vid.videoHeight);
+    ctx.drawImage(vid,(ov.width-vid.videoWidth*s)/2,(ov.height-vid.videoHeight*s)/2,vid.videoWidth*s,vid.videoHeight*s);
+  }
+  // Vẽ bounding boxes lên trên (copy từ canvas overlay)
+  ctx.drawImage(ov,0,0);
+  // Watermark
+  const now=new Date();
+  const ts=now.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})+' · '+now.toLocaleDateString('vi-VN');
+  const label='📍 '+currentStreet+' · '+ts;
+  ctx.font='bold 11px -apple-system,Arial,sans-serif';
+  const tw=Math.min(ctx.measureText(label).width+16,c.width);
+  ctx.fillStyle='rgba(0,0,0,0.6)';
+  ctx.fillRect(0,c.height-26,tw,26);
+  ctx.fillStyle='#fff';
+  ctx.fillText(label,8,c.height-8);
+  // Tải xuống
+  const safeName=currentStreet.replace(/[^\w\s]/g,'').replace(/\s+/g,'_').substring(0,25)||'BienHoa';
+  const tsFile=now.getFullYear()+''+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'_'+String(now.getHours()).padStart(2,'0')+String(now.getMinutes()).padStart(2,'0');
+  const a=document.createElement('a');
+  a.href=c.toDataURL('image/jpeg',0.92);
+  a.download='TrafficAI_'+safeName+'_'+tsFile+'.jpg';
+  a.click();
+}
+
 function exportResult(){
   const ov=document.getElementById('ov');
   const preview=document.getElementById('upload-preview');
