@@ -880,6 +880,8 @@ async function oneShot(){
   const b64=url.split(',')[1];
   const imgData=c.getContext('2d').getImageData(0,0,c.width,c.height);
   setStatus('⚡ Đang phân tích...');
+  const hrOS=new Date().getHours();
+  window._dynConf=hrOS>=20||hrOS<6?0.05:hrOS>=18||hrOS<8?0.08:0.15;
   if(modelReady){
     await runYOLO_full(imgData,c.width,c.height);
   } else {
@@ -895,6 +897,11 @@ window.addEventListener('resize',resizeOv);
 // ═══════════════════════════════════════════════════
 async function analyze(){
   const v=document.getElementById('vid');if(!stream||v.readyState<2)return;
+  // Tự động điều chỉnh CONF theo giờ
+  const hour=new Date().getHours();
+  if(hour>=20||hour<6) window._dynConf=0.05; // Ban đêm: rất nhạy
+  else if(hour>=18||hour<8) window._dynConf=0.08; // Hoàng hôn/bình minh
+  else window._dynConf=0.15; // Ban ngày: bình thường
   const c=document.createElement('canvas');c.width=v.videoWidth||640;c.height=v.videoHeight||480;
   c.getContext('2d').drawImage(v,0,0);
   const b64=c.toDataURL('image/jpeg',.85).split(',')[1];
@@ -923,6 +930,8 @@ async function upload(file){
         const tmpC=document.createElement('canvas');tmpC.width=img.width;tmpC.height=img.height;
         tmpC.getContext('2d').drawImage(img,0,0);
         const imgData=tmpC.getContext('2d').getImageData(0,0,img.width,img.height);
+        const hr=new Date().getHours();
+        window._dynConf=hr>=20||hr<6?0.05:hr>=18||hr<8?0.08:0.15;
         await runYOLO_full(imgData,img.width,img.height);
       } else {
         await runClaude(b64,file.type||'image/jpeg',img.width,img.height);
