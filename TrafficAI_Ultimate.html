@@ -781,7 +781,8 @@ function loadHistoryFromFirebase(uid){
 
 let apiKey='';
 let currentStreet='Biên Hòa, Đồng Nai';
-let lastImageDataURL=null; // Lưu ảnh gốc để export
+let lastImageDataURL=null;
+let lastBoxes=[]; // Lưu boxes để redraw khi export
 let currentLat=null,currentLng=null;
 
 // ═══════════════════════════════════════════════════
@@ -960,6 +961,7 @@ async function runYOLO_full(imgData,imgW,imgH){
     const t=calc(r);showProc(false);
     render(r,t);drawYOLO(boxes,r,t,imgW,imgH);
     saveHistory(r,t);
+    lastBoxes=[...boxes];
     setStatus(`YOLO ✓ · ${boxes.length} phương tiện · ${new Date().toLocaleTimeString('vi-VN')}`);
   }catch(e){
     showProc(true,'Fallback Claude Vision...');
@@ -1659,42 +1661,48 @@ function autoSaveWithBoxes(){
 
 function exportResult(){
   const ov=document.getElementById('ov');
-  const preview=document.getElementById('upload-preview');
-  const vid=document.getElementById('vid');
-  // Canvas tổng hợp ảnh + box
-  const c=document.createElement('canvas');
-  c.width=ov.width;c.height=ov.height;
-  const ctx=c.getContext('2d');
-  // Vẽ ảnh nền từ lastImageDataURL hoặc preview
-  if(lastImageDataURL){
-    const img=new Image();
-    img.src=lastImageDataURL;
-    if(img.complete){ctx.drawImage(img,0,0,c.width,c.height);}
-  } else if(preview&&preview.style.display!=='none'&&preview.src){
-    ctx.drawImage(preview,0,0,c.width,c.height);
-  } else if(vid.srcObject&&vid.readyState>=2){
-    const s=Math.min(ov.width/vid.videoWidth,ov.height/vid.videoHeight);
-    ctx.drawImage(vid,(ov.width-vid.videoWidth*s)/2,(ov.height-vid.videoHeight*s)/2,vid.videoWidth*s,vid.videoHeight*s);
-  }
-  // Vẽ bounding boxes lên trên
-  ctx.drawImage(ov,0,0);
-  // Watermark tên đường + giờ
-  const now=new Date();
-  const ts=now.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})+' · '+now.toLocaleDateString('vi-VN');
-  const label=`📍 ${currentStreet} · ${ts}`;
-  ctx.font='bold 11px -apple-system,Arial,sans-serif';
-  const tw=ctx.measureText(label).width+16;
-  ctx.fillStyle='rgba(0,0,0,0.6)';
-  ctx.fillRect(0,c.height-26,Math.min(tw,c.width),26);
-  ctx.fillStyle='#fff';
-  ctx.fillText(label,8,c.height-8);
-  // Tải xuống
-  const safeName=currentStreet.replace(/[^\w\s]/g,'').replace(/\s+/g,'_').substring(0,25)||'BienHoa';
-  const tsFile=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
-  const a=document.createElement('a');
-  a.href=c.toDataURL('image/jpeg',0.92);
-  a.download=`TrafficAI_${safeName}_${tsFile}.jpg`;
-  a.click();
+  if(!lastImageDataURL){alert('Chưa có ảnh để lưu!');return;}
+  const img=new Image();
+  img.onload=function(){
+    const c=document.createElement('canvas');
+    c.width=img.naturalWidth||ov.width;
+    c.height=img.naturalHeight||ov.height;
+    const ctx=c.getContext('2d');
+    // Vẽ ảnh gốc
+    ctx.drawImage(img,0,0,c.width,c.height);
+    // Vẽ lại boxes từ lastBoxes
+    const scX=c.width/ov.width, scY=c.height/ov.height;
+    const CLS_COLORS={0:'#3fa9f5',1:'#ff9500',2:'#ff3b30'};
+    const CLS_LABELS={0:'Xe máy',1:'Ô tô',2:'Xe lớn'};
+    lastBoxes.forEach(b=>{
+      const col=CLS_COLORS[b.cls]||'#fff';
+      const x=b.x*scX,y=b.y*scY,w=b.w*scX,h=b.h*scY;
+      ctx.strokeStyle=col;ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
+      ctx.fillStyle=col;ctx.font='bold 11px Arial';
+      const lbl=(CLS_LABELS[b.cls]||'?')+' '+(b.conf*100|0)+'%';
+      const tw2=ctx.measureText(lbl).width+8;
+      ctx.fillRect(x,y-16,tw2,16);
+      ctx.fillStyle='#fff';ctx.fillText(lbl,x+4,y-4);
+    });
+    // Watermark tên đường + giờ
+    const now=new Date();
+    const ts=now.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})+' · '+now.toLocaleDateString('vi-VN');
+    const label='📍 '+currentStreet+' · '+ts;
+    ctx.font='bold 11px -apple-system,Arial,sans-serif';
+    const tw=ctx.measureText(label).width+16;
+    ctx.fillStyle='rgba(0,0,0,0.6)';
+    ctx.fillRect(0,c.height-26,Math.min(tw,c.width),26);
+    ctx.fillStyle='#fff';
+    ctx.fillText(label,8,c.height-8);
+    // Tải xuống
+    const safeName=currentStreet.replace(/[^\w\s]/g,'').replace(/\s+/g,'_').substring(0,25)||'BienHoa';
+    const tsFile=now.getFullYear()+''+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'_'+String(now.getHours()).padStart(2,'0')+String(now.getMinutes()).padStart(2,'0');
+    const a=document.createElement('a');
+    a.href=c.toDataURL('image/jpeg',0.92);
+    a.download='TrafficAI_'+safeName+'_'+tsFile+'.jpg';
+    a.click();
+  };
+  img.src=lastImageDataURL;
 }
 
 // ═══════════════════════════════════════════════════
