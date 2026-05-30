@@ -967,11 +967,16 @@ async function runYOLO_full(imgData,imgW,imgH){
     // Multi-scale detection ban đêm: chạy ở 2 kích thước rồi gộp
     let boxes;
     if(hour>=19||hour<7){
-      showProc(true,'YOLO multi-scale (đêm)...');
-      const b1=await runYOLO_at(processedData,imgW,imgH,640);
-      const b2=await runYOLO_at(processedData,imgW,imgH,960);
-      boxes=nms([...b1,...b2]); // Gộp và NMS
-      console.log(`[Multi-scale] 640: ${b1.length} | 960: ${b2.length} | merged: ${boxes.length}`);
+      try{
+        showProc(true,'YOLO multi-scale (đêm)...');
+        const b1=await runYOLO_at(processedData,imgW,imgH,640);
+        const b2=await runYOLO_at(processedData,imgW,imgH,832);
+        boxes=nms([...b1,...b2]);
+        console.log(`[Multi-scale] 640: ${b1.length} | 832: ${b2.length} | merged: ${boxes.length}`);
+      } catch(msErr){
+        console.log('[Multi-scale lỗi, fallback 640]:', msErr);
+        boxes=await runYOLO(processedData,imgW,imgH);
+      }
     } else {
       boxes=await runYOLO(processedData,imgW,imgH);
     }
