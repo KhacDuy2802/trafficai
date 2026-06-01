@@ -52,6 +52,11 @@ video{width:100%;height:100%;object-fit:cover;display:block}
 #upload-preview{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:none;background:#000}
 canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .hud{position:absolute;top:8px;left:8px;right:8px;display:none;gap:4px;flex-wrap:wrap;pointer-events:none}
+#zoom-btn{position:absolute;right:8px;bottom:8px;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;border:none;font-size:16px;display:none;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(8px);z-index:6}
+#zoom{position:fixed;inset:0;background:rgba(0,0,0,.96);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:9999}
+#zoom canvas{max-width:100%;max-height:86vh}
+#zoom .zclose{position:absolute;top:max(14px,env(safe-area-inset-top));right:16px;width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;border:none;font-size:20px;cursor:pointer}
+#zoom .zcap{position:absolute;bottom:max(18px,env(safe-area-inset-bottom));color:#fff;font-size:13px;font-weight:600;background:rgba(0,0,0,.5);padding:6px 14px;border-radius:20px}
 .chip{background:rgba(255,255,255,.92);border-radius:7px;padding:2px 8px;font-size:9px;font-weight:500;color:var(--tx2);box-shadow:0 1px 4px rgba(0,0,0,.12);backdrop-filter:blur(10px)}
 .chip.b{color:var(--ac)}.chip.g{color:var(--g)}.chip.p{color:var(--pur)}
 .scanline{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(0,122,255,.4),transparent);animation:sc 3s linear infinite;display:none;pointer-events:none}
@@ -114,11 +119,12 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .export-btn:active{opacity:.85}
 
 /* Controls */
-.ctrl{display:flex;gap:6px;margin-bottom:8px;align-items:center}
+.ctrl{display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap}
+.seg-lbl{font-size:10px;color:var(--tx3);font-weight:600;align-self:center;white-space:nowrap}
 .road-seg{display:flex;background:rgba(118,118,128,.12);border-radius:8px;padding:2px;gap:1px}
 .rb{padding:5px 8px;border-radius:6px;border:none;background:none;color:var(--tx2);font-size:10px;font-weight:500;cursor:pointer;transition:.15s;font-family:var(--f)}
 .rb.on{background:var(--card);color:var(--tx);box-shadow:0 1px 3px rgba(0,0,0,.12)}
-.btns{display:flex;gap:5px;flex:1;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+.btns{display:flex;gap:5px;flex:1 1 auto;flex-wrap:wrap;min-width:150px}
 .btns::-webkit-scrollbar{display:none}
 .btn{flex:0 0 auto;min-width:80px;padding:0 10px;height:42px;border-radius:11px;border:none;font-family:var(--f);font-size:12px;font-weight:600;cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap}
 .btn:active{transform:scale(.96)}
@@ -313,6 +319,7 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
     <video id="vid" autoplay playsinline muted></video>
     <img id="upload-preview" alt="">
     <canvas id="ov"></canvas>
+    <button id="zoom-btn" onclick="zoomView()" title="Phóng to">🔍</button>
     <div class="hud" id="hud">
       <div class="chip b" id="hc1">Cấp B</div>
       <div class="chip" id="hc2">OR –%</div>
@@ -395,6 +402,7 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
     </div>
 
     <div class="ctrl">
+      <span class="seg-lbl">Cấp đường</span>
       <div class="road-seg">
         <button class="rb" id="rA" onclick="setRoad('A')">A</button>
         <button class="rb on" id="rX" onclick="setRoad('auto')">Auto</button>
@@ -1409,6 +1417,7 @@ function renderHistory(){
 // DRAW YOLO BOXES
 // ═══════════════════════════════════════════════════
 function drawYOLO(boxes,r,t,imgW,imgH){
+  const _zb=document.getElementById('zoom-btn');if(_zb)_zb.style.display='flex';
   const ov=document.getElementById('ov');
   const ctx=ov.getContext('2d');
   ctx.clearRect(0,0,ov.width,ov.height);
@@ -2038,6 +2047,41 @@ window.addEventListener('load',()=>{
     if(modal)modal.style.display='flex';
   },300);
 });
+
+// ── Phóng to ảnh kết quả toàn màn hình (xem box rõ khi demo) ──
+function zoomView(){
+  if(!lastImageDataURL)return;
+  const z=document.getElementById('zoom'),cv=document.getElementById('zoom-canvas');
+  const img=new Image();
+  img.onload=function(){
+    const iw=img.naturalWidth,ih=img.naturalHeight;
+    const sc=Math.min(window.innerWidth/iw,(window.innerHeight*0.86)/ih);
+    cv.width=Math.round(iw*sc);cv.height=Math.round(ih*sc);
+    const ctx=cv.getContext('2d');
+    ctx.drawImage(img,0,0,cv.width,cv.height);
+    const clr={0:'#ff9500',1:'#007aff',2:'#ff3b30',3:'#007aff',5:'#ff3b30',7:'#ff3b30'};
+    const nm={0:'Ô tô',1:'Xe máy',2:'Xe lớn',3:'Xe máy',5:'Xe lớn',7:'Xe lớn'};
+    (lastBoxes||[]).forEach(b=>{
+      const x=b.x1*sc,y=b.y1*sc,w=(b.x2-b.x1)*sc,h=(b.y2-b.y1)*sc;
+      ctx.strokeStyle=clr[b.cls]||'#fff';ctx.lineWidth=Math.max(2,Math.min(w,h)/30);
+      ctx.strokeRect(x,y,w,h);
+      const lb=(nm[b.cls]||'?')+' '+Math.round(b.conf*100)+'%';
+      ctx.font='bold 13px -apple-system,sans-serif';
+      const tw=ctx.measureText(lb).width+8,ly=Math.max(0,y-18);
+      ctx.fillStyle=clr[b.cls]||'#fff';ctx.fillRect(x,ly,tw,16);
+      ctx.fillStyle='#fff';ctx.fillText(lb,x+4,ly+12);
+    });
+    document.getElementById('zoom-cap').textContent=(lastBoxes||[]).length+' phương tiện · chạm nền để đóng';
+    z.style.display='flex';
+  };
+  img.src=lastImageDataURL;
+}
+function closeZoom(){document.getElementById('zoom').style.display='none';}
 </script>
+<div id="zoom" onclick="if(event.target.id==='zoom')closeZoom()">
+  <button class="zclose" onclick="closeZoom()">✕</button>
+  <canvas id="zoom-canvas"></canvas>
+  <div class="zcap" id="zoom-cap"></div>
+</div>
 </body>
 </html>
