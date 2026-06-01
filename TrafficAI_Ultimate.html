@@ -122,6 +122,7 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .ctrl{display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap}
 .seg-lbl{font-size:10px;color:var(--tx3);font-weight:600;align-self:center;white-space:nowrap}
 .ctrl-right{display:flex;gap:6px;align-items:center;margin-left:auto}
+.roi-btn{font-size:10px;font-weight:600;background:var(--card2);border:none;border-radius:8px;padding:7px 9px;color:var(--tx);cursor:pointer;white-space:nowrap;align-self:center}
 .road-seg{display:flex;background:rgba(118,118,128,.12);border-radius:8px;padding:2px;gap:1px}
 .rb{padding:5px 8px;border-radius:6px;border:none;background:none;color:var(--tx2);font-size:10px;font-weight:500;cursor:pointer;transition:.15s;font-family:var(--f)}
 .rb.on{background:var(--card);color:var(--tx);box-shadow:0 1px 3px rgba(0,0,0,.12)}
@@ -410,6 +411,7 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
         <button class="rb" id="rB" onclick="setRoad('B')">B</button>
         <button class="rb" id="rC" onclick="setRoad('C')">C</button>
       </div>
+      <button id="roiBtn" onclick="toggleROI()" class="roi-btn">🛣️ Vùng: Bật</button>
       <div class="btns">
         <button class="btn btn-c" id="bcam" onclick="toggleCam()">📷 Camera</button>
         <button class="btn btn-a" id="bai" onclick="analyze()" disabled>🤖 Phân tích</button>
@@ -794,6 +796,7 @@ let apiKey='';
 let currentStreet='Biên Hòa, Đồng Nai';
 let lastImageDataURL=null;
 let lastBoxes=[]; // Lưu boxes để redraw khi export
+let ROI_ON=true; let lastImgW=0,lastImgH=0; // Vùng quan tâm (ROI)
 let currentLat=null,currentLng=null;
 
 // ═══════════════════════════════════════════════════
@@ -1013,6 +1016,49 @@ function applyCLAHE(imgData,W,H,tiles,clipLimit){
   return new ImageData(out,W,H);
 }
 
+// ── Vùng quan tâm (ROI): hình thang giữa lòng đường, bỏ lề/vỉa hè & vùng trời ──
+function roiPoly(W,H){
+  return [{x:0.30*W,y:0.16*H},{x:0.70*W,y:0.16*H},{x:0.92*W,y:1.0*H},{x:0.08*W,y:1.0*H}];
+}
+function inROI(b,W,H){
+  if(!ROI_ON)return true;
+  const cx=(b.x1+b.x2)/2, cy=(b.y1+b.y2)/2, p=roiPoly(W,H);
+  let inside=false;
+  for(let i=0,j=p.length-1;i<p.length;j=i++){
+    if(((p[i].y>cy)!==(p[j].y>cy)) && (cx<(p[j].x-p[i].x)*(cy-p[i].y)/(p[j].y-p[i].y)+p[i].x))inside=!inside;
+  }
+  return inside;
+}
+// Đếm + tính D-Score + vẽ, có lọc ROI. doSave=true thì mới lưu lịch sử.
+function applyResult(boxes,imgW,imgH,doSave){
+  lastImgW=imgW;lastImgH=imgH;lastBoxes=[...boxes];
+  const counted=boxes.filter(b=>inROI(b,imgW,imgH));
+  const counts={moto:0,car:0,bus:0};
+  counted.forEach(b=>{
+    if(b.cls===1)counts.moto++;
+    else if(b.cls===0)counts.car++;
+    else if(b.cls===2)counts.bus++;
+    else if(b.cls===3)counts.moto++;
+    else if(b.cls===5)counts.bus++;
+    else if(b.cls===7)counts.bus++;
+  });
+  const totalArea=counted.reduce((s,b)=>s+(b.x2-b.x1)*(b.y2-b.y1),0);
+  const OR=Math.min(1,totalArea/(imgW*imgH*0.6));
+  const r={soXeMay:counts.moto,soOTo:counts.car,soXeLon:counts.bus,loaiDuong:'Cap_B',occupancyRate:OR,nhanXet:`YOLO: ${counts.moto} xe máy, ${counts.car} ô tô, OR ${Math.round(OR*100)}%.`};
+  const t=calc(r);
+  render(r,t);
+  drawYOLO(boxes,r,t,imgW,imgH);
+  if(doSave)saveHistory(r,t);
+  setStatus(`YOLO ✓ · ${counted.length} phương tiện${ROI_ON?' (trong vùng)':''} · ${new Date().toLocaleTimeString('vi-VN')}`);
+}
+// Bật/tắt ROI, tính lại từ kết quả gần nhất (không lưu lịch sử mới)
+function toggleROI(){
+  ROI_ON=!ROI_ON;
+  const btn=document.getElementById('roiBtn');
+  if(btn){btn.textContent=ROI_ON?'🛣️ Vùng: Bật':'🛣️ Vùng: Tắt';btn.style.opacity=ROI_ON?'1':'0.55';}
+  if(lastBoxes.length&&lastImgW)applyResult(lastBoxes,lastImgW,lastImgH,false);
+}
+
 async function runYOLO_full(imgData,imgW,imgH){
   if(busy)return;busy=true;
   showProc(true,'YOLO đang nhận diện...');
@@ -1051,30 +1097,11 @@ async function runYOLO_full(imgData,imgW,imgH){
     } else {
       boxes=await runYOLO(processedData,imgW,imgH);
     }
-    const counts={moto:0,car:0,bus:0};
     const clsDist={};
     boxes.forEach(b=>{clsDist[b.cls]=(clsDist[b.cls]||0)+1;});
     console.log('[YOLO] Class distribution:', clsDist);
-    // Model Biên Hòa: class 0=ô tô, 1=xe máy, 2=xe lớn (theo data.yaml thực tế)
-    boxes.forEach(b=>{
-      if(b.cls===1)counts.moto++;      // 1 = xe máy
-      else if(b.cls===0)counts.car++;  // 0 = ô tô
-      else if(b.cls===2)counts.bus++;  // 2 = xe lớn
-      else if(b.cls===3)counts.moto++; // COCO motorcycle fallback
-      else if(b.cls===5)counts.bus++;  // COCO bus fallback
-      else if(b.cls===7)counts.bus++;  // COCO truck fallback
-      // lớp lạ: bỏ qua
-    });
-    console.log('[YOLO] Final counts:', counts);
-    const totalArea=boxes.reduce((s,b)=>{return s+(b.x2-b.x1)*(b.y2-b.y1);},0);
-    const OR=Math.min(1,totalArea/(imgW*imgH*0.6));
-    const r={soXeMay:counts.moto,soOTo:counts.car,soXeLon:counts.bus,loaiDuong:'Cap_B',occupancyRate:OR,nhanXet:`YOLO: ${counts.moto} xe máy, ${counts.car} ô tô, OR ${Math.round(OR*100)}%.`};
-    showProc(true,'Tính D-Score...');await sleep(100);
-    const t=calc(r);showProc(false);
-    render(r,t);drawYOLO(boxes,r,t,imgW,imgH);
-    saveHistory(r,t);
-    lastBoxes=[...boxes];
-    setStatus(`YOLO ✓ · ${boxes.length} phương tiện · ${new Date().toLocaleTimeString('vi-VN')}`);
+    showProc(true,'Tính D-Score...');await sleep(100);showProc(false);
+    applyResult(boxes,imgW,imgH,true);
   }catch(e){
     showProc(true,'Fallback Claude Vision...');
     const v=document.getElementById('vid');
@@ -1434,11 +1461,28 @@ function drawYOLO(boxes,r,t,imgW,imgH){
   ctx.beginPath();
   ctx.rect(offX,offY,imgW*scale,imgH*scale);
   ctx.clip();
+  // Vẽ ranh giới vùng quan tâm (ROI)
+  if(ROI_ON){
+    const p=roiPoly(imgW,imgH);
+    ctx.beginPath();
+    p.forEach((pt,i)=>{const X=offX+pt.x*scale,Y=offY+pt.y*scale;i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);});
+    ctx.closePath();
+    ctx.setLineDash([6,5]);ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.setLineDash([]);
+  }
   // Vẽ box trước, label sau để tránh che nhau
   boxes.forEach(b=>{
     const x=offX+b.x1*scale,y=offY+b.y1*scale;
     const w=(b.x2-b.x1)*scale,h=(b.y2-b.y1)*scale;
     if(w<4||h<4)return;
+    const counted=inROI(b,imgW,imgH);
+    if(!counted){
+      // Ngoài vùng: làm mờ, không đếm, không nhãn
+      ctx.strokeStyle='rgba(150,150,150,.5)';
+      ctx.lineWidth=Math.max(1,Math.min(w,h)/55);
+      ctx.strokeRect(x,y,w,h);
+      return;
+    }
     ctx.strokeStyle=clr[b.cls]||'#fff';
     ctx.lineWidth=Math.max(1.5,Math.min(w,h)/40);
     ctx.strokeRect(x,y,w,h);
