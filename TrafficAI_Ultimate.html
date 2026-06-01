@@ -599,6 +599,7 @@ const MODEL_URL='traffic_bienhoa_v2.onnx';
 const CLS_MOTO=3,CLS_CAR=2,CLS_BUS=5,CLS_TRUCK=7;
 const CLS_MOTO2=0,CLS_CAR2=1,CLS_BUS2=2; // fallback class IDs cho custom model
 const CONF=0.15,IOU=0.35,SZ=640;
+const LARGE_CONF=0.25; // Ngưỡng tin cậy riêng (cao hơn) cho xe lớn để tránh nhận nhầm nhà cửa/tường
 
 let stream=null,forced=null,busy=false;
 let ortSession=null,modelReady=false;
@@ -1159,7 +1160,8 @@ async function runYOLO_at(imgData,imgW,imgH,inputSize){
       cx=data[0*numDet+i];cy=data[1*numDet+i];w=data[2*numDet+i];h=data[3*numDet+i];
       for(let c=0;c<numCls+1;c++){const v=data[(4+c)*numDet+i];if(v>bv){bv=v;bc=c;}}
     }
-    if(bv<dynConf)continue;
+    const needConf=(bc===2||bc===5||bc===7)?Math.max(dynConf,LARGE_CONF):dynConf;
+    if(bv<needConf)continue;
     const relW=w/sz,relH=h/sz;
     const minSz=window._minBoxSize||0.015;
     if(relW<minSz||relH<minSz)continue;
