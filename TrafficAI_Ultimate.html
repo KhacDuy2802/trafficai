@@ -121,6 +121,7 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 /* Controls */
 .ctrl{display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap}
 .seg-lbl{font-size:10px;color:var(--tx3);font-weight:600;align-self:center;white-space:nowrap}
+.ctrl-right{display:flex;gap:6px;align-items:center;margin-left:auto}
 .road-seg{display:flex;background:rgba(118,118,128,.12);border-radius:8px;padding:2px;gap:1px}
 .rb{padding:5px 8px;border-radius:6px;border:none;background:none;color:var(--tx2);font-size:10px;font-weight:500;cursor:pointer;transition:.15s;font-family:var(--f)}
 .rb.on{background:var(--card);color:var(--tx);box-shadow:0 1px 3px rgba(0,0,0,.12)}
@@ -414,8 +415,10 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
         <button class="btn btn-a" id="bai" onclick="analyze()" disabled>🤖 Phân tích</button>
         <button class="btn" id="b1shot" onclick="oneShot()" style="background:linear-gradient(135deg,#5856d6,#007aff);color:#fff;display:none">⚡ Chụp & Phân tích</button>
       </div>
-      <button onclick="requestLocation()" style="background:var(--card2);border:none;border-radius:10px;padding:8px 10px;font-size:12px;font-weight:600;color:var(--tx);cursor:pointer;display:flex;align-items:center;gap:3px">📍<span>GPS</span></button>
-      <label class="btn-u">📂<input type="file" accept="image/*" onchange="upload(this.files[0])"></label>
+      <div class="ctrl-right">
+        <button onclick="requestLocation()" style="background:var(--card2);border:none;border-radius:10px;padding:8px 10px;font-size:12px;font-weight:600;color:var(--tx);cursor:pointer;display:flex;align-items:center;gap:3px">📍<span>GPS</span></button>
+        <label class="btn-u">📂<input type="file" accept="image/*" onchange="upload(this.files[0])"></label>
+      </div>
     </div>
   </div>
 </div>
