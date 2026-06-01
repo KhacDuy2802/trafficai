@@ -637,7 +637,7 @@ auth.onAuthStateChanged(user=>{
         avatar.style.display='none';
         const initial=user.email?user.email[0].toUpperCase():'U';
         const emailName=user.email?user.email.split('@')[0]:'Tôi';
-        chip.innerHTML='<div style="width:22px;height:22px;border-radius:50%;background:#007aff;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">'+initial+'</div><span>'+emailName+'</span>';
+        chip.innerHTML='<div style="width:22px;height:22px;border-radius:50%;background:#007aff;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">'+esc(initial)+'</div><span>'+esc(emailName)+'</span>';
         chip.onclick=showUserPanel;
       }
       if(name)name.textContent=(user.displayName?user.displayName.split(' ').pop():null)||(user.email?user.email.split('@')[0]:null)||'Tôi';
@@ -794,8 +794,9 @@ async function loadModel(){
     setStatus('Đang tải YOLO model (v2)...');
     document.getElementById('splash-bar').style.width='60%';
     document.getElementById('splash-txt').textContent='Khởi tạo YOLO engine...';
+    try{ort.env.wasm.simd=true;}catch(e){}
     ortSession=await ort.InferenceSession.create(MODEL_URL,{
-      executionProviders:['wasm'],graphOptimizationLevel:'all'
+      executionProviders:['webgpu','wasm'],graphOptimizationLevel:'all'
     });
     modelReady=true;
     document.getElementById('splash-bar').style.width='100%';
@@ -943,6 +944,64 @@ async function upload(file){
 // ═══════════════════════════════════════════════════
 // YOLO ON-DEVICE
 // ═══════════════════════════════════════════════════
+// ── Helper escape HTML chống XSS (tên đường người dùng nhập) ──
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+// ── Canvas tái sử dụng cho YOLO (giảm GC khi chạy realtime) ──
+let _yCanvas=null,_yCtx=null,_tmpCanvas=null,_tmpCtx=null;
+
+// ── CLAHE: Contrast Limited Adaptive Histogram Equalization trên kênh sáng (Y) ──
+function applyCLAHE(imgData,W,H,tiles,clipLimit){
+  tiles=tiles||8; clipLimit=clipLimit||2.5;
+  const src=imgData.data, N=W*H;
+  const Y=new Float32Array(N), Cb=new Float32Array(N), Cr=new Float32Array(N);
+  for(let i=0;i<N;i++){
+    const r=src[i*4],g=src[i*4+1],b=src[i*4+2];
+    Y[i]=0.299*r+0.587*g+0.114*b;
+    Cb[i]=-0.168736*r-0.331264*g+0.5*b+128;
+    Cr[i]=0.5*r-0.418688*g-0.081312*b+128;
+  }
+  const tw=Math.ceil(W/tiles), th=Math.ceil(H/tiles);
+  const nClip=Math.max(1, clipLimit*(tw*th)/256);
+  const maps=[];
+  for(let ty=0;ty<tiles;ty++){
+    maps[ty]=[];
+    for(let tx=0;tx<tiles;tx++){
+      const hist=new Float32Array(256);
+      const x0=tx*tw,y0=ty*th,x1=Math.min(W,x0+tw),y1=Math.min(H,y0+th);
+      let cnt=0;
+      for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){hist[Y[y*W+x]|0]++;cnt++;}
+      let excess=0;
+      for(let k=0;k<256;k++){if(hist[k]>nClip){excess+=hist[k]-nClip;hist[k]=nClip;}}
+      const add=excess/256;
+      for(let k=0;k<256;k++)hist[k]+=add;
+      const map=new Uint8Array(256); let cdf=0; const sc=255/(cnt||1);
+      for(let k=0;k<256;k++){cdf+=hist[k];map[k]=Math.min(255,Math.round(cdf*sc));}
+      maps[ty][tx]=map;
+    }
+  }
+  const out=new Uint8ClampedArray(src.length);
+  for(let y=0;y<H;y++){
+    let fy=(y/th)-0.5, ty0=Math.floor(fy), wy=fy-ty0;
+    if(ty0<0){ty0=0;wy=0;} if(ty0>tiles-2){ty0=Math.max(0,tiles-2);wy=tiles>1?1:0;}
+    const ty1=Math.min(tiles-1,ty0+1);
+    for(let x=0;x<W;x++){
+      const i=y*W+x, v=Y[i]|0;
+      let fx=(x/tw)-0.5, tx0=Math.floor(fx), wx=fx-tx0;
+      if(tx0<0){tx0=0;wx=0;} if(tx0>tiles-2){tx0=Math.max(0,tiles-2);wx=tiles>1?1:0;}
+      const tx1=Math.min(tiles-1,tx0+1);
+      const a=maps[ty0][tx0][v],b=maps[ty0][tx1][v],c=maps[ty1][tx0][v],d=maps[ty1][tx1][v];
+      const top=a*(1-wx)+b*wx, bot=c*(1-wx)+d*wx, ny=top*(1-wy)+bot*wy;
+      const cb=Cb[i]-128, cr=Cr[i]-128;
+      out[i*4]=ny+1.402*cr;
+      out[i*4+1]=ny-0.344136*cb-0.714136*cr;
+      out[i*4+2]=ny+1.772*cb;
+      out[i*4+3]=255;
+    }
+  }
+  return new ImageData(out,W,H);
+}
+
 async function runYOLO_full(imgData,imgW,imgH){
   if(busy)return;busy=true;
   showProc(true,'YOLO đang nhận diện...');
@@ -951,12 +1010,13 @@ async function runYOLO_full(imgData,imgW,imgH){
     const hour=new Date().getHours();
     let processedData=imgData;
     if(hour>=19||hour<7){
-      showProc(true,'Tăng sáng ảnh đêm...');
+      showProc(true,'CLAHE tăng sáng ảnh đêm...');
+      // CLAHE thật trên kênh sáng, sau đó tăng brightness/contrast tổng thể
+      const claheData=applyCLAHE(imgData,imgW,imgH,8,2.5);
       const tmpC=document.createElement('canvas');
       tmpC.width=imgW;tmpC.height=imgH;
       const tmpCtx=tmpC.getContext('2d');
-      tmpCtx.putImageData(imgData,0,0);
-      // Tăng brightness + contrast
+      tmpCtx.putImageData(claheData,0,0);
       tmpCtx.filter='brightness(1.8) contrast(1.3)';
       tmpCtx.drawImage(tmpC,0,0);
       tmpCtx.filter='none';
@@ -984,15 +1044,15 @@ async function runYOLO_full(imgData,imgW,imgH){
     const clsDist={};
     boxes.forEach(b=>{clsDist[b.cls]=(clsDist[b.cls]||0)+1;});
     console.log('[YOLO] Class distribution:', clsDist);
-    // Model Biên Hòa custom: class 0=ô tô, 1=xe máy, 2=xe lớn
+    // Model Biên Hòa custom: class 0=xe máy, 1=ô tô, 2=xe lớn
     boxes.forEach(b=>{
-      if(b.cls===1)counts.moto++;
-      else if(b.cls===0)counts.car++;
-      else if(b.cls===2)counts.bus++;
+      if(b.cls===0)counts.moto++;      // 0 = xe máy
+      else if(b.cls===1)counts.car++;  // 1 = ô tô
+      else if(b.cls===2)counts.bus++;  // 2 = xe lớn
       else if(b.cls===3)counts.moto++; // COCO motorcycle fallback
       else if(b.cls===5)counts.bus++;  // COCO bus fallback
       else if(b.cls===7)counts.bus++;  // COCO truck fallback
-      else counts.moto++;
+      // lớp lạ: bỏ qua, không gộp nhầm vào xe máy
     });
     console.log('[YOLO] Final counts:', counts);
     const totalArea=boxes.reduce((s,b)=>{return s+(b.x2-b.x1)*(b.y2-b.y1);},0);
@@ -1019,15 +1079,17 @@ async function runYOLO(imgData,imgW,imgH){
 
 async function runYOLO_at(imgData,imgW,imgH,inputSize){
   const sz=inputSize||SZ;
-  const canvas=document.createElement('canvas');canvas.width=sz;canvas.height=sz;
-  const ctx=canvas.getContext('2d');
+  if(!_yCanvas){_yCanvas=document.createElement('canvas');_yCtx=_yCanvas.getContext('2d',{willReadFrequently:true});}
+  if(_yCanvas.width!==sz){_yCanvas.width=sz;_yCanvas.height=sz;}
+  const canvas=_yCanvas,ctx=_yCtx;
   const scale=Math.min(sz/imgW,sz/imgH);
   const nw=Math.round(imgW*scale),nh=Math.round(imgH*scale);
   const dx=Math.floor((sz-nw)/2),dy=Math.floor((sz-nh)/2);
   ctx.fillStyle='#808080';ctx.fillRect(0,0,sz,sz);
-  const tmp=document.createElement('canvas');tmp.width=imgW;tmp.height=imgH;
-  tmp.getContext('2d').putImageData(imgData,0,0);
-  ctx.drawImage(tmp,dx,dy,nw,nh);
+  if(!_tmpCanvas){_tmpCanvas=document.createElement('canvas');_tmpCtx=_tmpCanvas.getContext('2d',{willReadFrequently:true});}
+  if(_tmpCanvas.width!==imgW||_tmpCanvas.height!==imgH){_tmpCanvas.width=imgW;_tmpCanvas.height=imgH;}
+  _tmpCtx.putImageData(imgData,0,0);
+  ctx.drawImage(_tmpCanvas,dx,dy,nw,nh);
   const pixels=ctx.getImageData(0,0,sz,sz).data;
   const tensor=new Float32Array(3*sz*sz);
   for(let i=0;i<sz*sz;i++){tensor[i]=pixels[i*4]/255;tensor[sz*sz+i]=pixels[i*4+1]/255;tensor[2*sz*sz+i]=pixels[i*4+2]/255;}
@@ -1322,7 +1384,7 @@ function renderHistory(){
   appHistory.forEach(h=>{
     const d=new Date(h.time);
     const el=document.createElement('div');el.className='hist-item';
-    el.innerHTML=`<div class="hi-left"><div class="hi-loc">📍 ${h.street||'Biên Hòa'} · Cấp ${h.road||'B'}</div>
+    el.innerHTML=`<div class="hi-left"><div class="hi-loc">📍 ${esc(h.street||'Biên Hòa')} · Cấp ${esc(h.road||'B')}</div>
     <div class="hi-sub">🛵 ${h.moto} &nbsp;🚗 ${h.car} &nbsp;🚌 ${h.bus} &nbsp;⚡ ${h.pcu} PCU</div>
     <div class="hi-badge ${h.status}">${lbl[h.status]||''}</div></div>
     <div><div class="hi-score" style="color:${col[h.status]}">${h.ds}%</div>
@@ -1341,8 +1403,8 @@ function drawYOLO(boxes,r,t,imgW,imgH){
   const scale=Math.min(ov.width/imgW,ov.height/imgH);
   const offX=(ov.width-imgW*scale)/2;
   const offY=(ov.height-imgH*scale)/2;
-  const clr={0:'#ff9500',1:'#007aff',2:'#ff3b30',3:'#007aff',5:'#ff3b30',7:'#ff3b30'};
-  const nm={0:'Ô tô',1:'🛵',2:'Xe lớn',3:'🛵',5:'Xe buýt',7:'Xe tải'};
+  const clr={0:'#007aff',1:'#ff9500',2:'#ff3b30',3:'#007aff',5:'#ff3b30',7:'#ff3b30'};
+  const nm={0:'🛵',1:'Ô tô',2:'Xe lớn',3:'🛵',5:'Xe buýt',7:'Xe tải'};
   // Clip vùng vẽ vào đúng phần ảnh
   ctx.save();
   ctx.beginPath();
