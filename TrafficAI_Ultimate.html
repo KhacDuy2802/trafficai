@@ -798,6 +798,7 @@ let currentStreet='Biên Hòa, Đồng Nai';
 let lastImageDataURL=null;
 let lastBoxes=[]; // Lưu boxes để redraw khi export
 let ROI_ON=true; let lastImgW=0,lastImgH=0; // Vùng quan tâm (ROI)
+let lastImgData=null; // Cache ảnh gần nhất, dùng cho phân loại đường khi toggle ROI
 let currentLat=null,currentLng=null;
 
 // ═══════════════════════════════════════════════════
@@ -1031,7 +1032,9 @@ function inROI(b,W,H){
   return inside;
 }
 // Đếm + tính D-Score + vẽ, có lọc ROI. doSave=true thì mới lưu lịch sử.
-function applyResult(boxes,imgW,imgH,doSave){
+// imgData: ảnh gốc để chạy Canny/Hough phân loại đường (nếu không truyền, dùng lại ảnh gần nhất)
+async function applyResult(boxes,imgW,imgH,doSave,imgData){
+  if(imgData)lastImgData=imgData;
   lastImgW=imgW;lastImgH=imgH;lastBoxes=[...boxes];
   const counted=boxes.filter(b=>inROI(b,imgW,imgH));
   const counts={moto:0,car:0,bus:0};
@@ -1045,7 +1048,10 @@ function applyResult(boxes,imgW,imgH,doSave){
   });
   const totalArea=counted.reduce((s,b)=>s+(b.x2-b.x1)*(b.y2-b.y1),0);
   const OR=Math.min(1,totalArea/(imgW*imgH*0.6));
-  const r={soXeMay:counts.moto,soOTo:counts.car,soXeLon:counts.bus,loaiDuong:'Cap_B',occupancyRate:OR,nhanXet:`YOLO: ${counts.moto} xe máy, ${counts.car} ô tô, OR ${Math.round(OR*100)}%.`};
+  // Phân loại cấp đường thật bằng bỏ phiếu Canny+Hough+YOLO Context+GPS/OSM (mục 3.2.2)
+  const useImgData=imgData||lastImgData;
+  const road=useImgData?await classifyRoad(useImgData,imgW,imgH,counts):'B';
+  const r={soXeMay:counts.moto,soOTo:counts.car,soXeLon:counts.bus,loaiDuong:'Cap_'+road,occupancyRate:OR,nhanXet:`YOLO: ${counts.moto} xe máy, ${counts.car} ô tô, OR ${Math.round(OR*100)}%.`};
   const t=calc(r);
   render(r,t);
   drawYOLO(boxes,r,t,imgW,imgH);
@@ -1102,7 +1108,7 @@ async function runYOLO_full(imgData,imgW,imgH){
     boxes.forEach(b=>{clsDist[b.cls]=(clsDist[b.cls]||0)+1;});
     console.log('[YOLO] Class distribution:', clsDist);
     showProc(true,'Tính D-Score...');await sleep(100);showProc(false);
-    applyResult(boxes,imgW,imgH,true);
+    await applyResult(boxes,imgW,imgH,true,imgData);
   }catch(e){
     showProc(true,'Fallback Claude Vision...');
     const v=document.getElementById('vid');
@@ -1340,6 +1346,134 @@ Respond in JSON only. No explanation, no markdown, no extra text:
     setStatus('Lỗi Claude Vision');
   }
   busy=false;
+}
+
+// ═══════════════════════════════════════════════════
+// PHÂN LOẠI CẤP ĐƯỜNG: Canny + Hough + YOLO Context + GPS/OSM
+// (bỏ phiếu có trọng số — mục 3.2.2 khóa luận)
+// ═══════════════════════════════════════════════════
+
+// ⚠️ NGƯỠNG TẠM THỜI — CẦN HIỆU CHỈNH BẰNG DỮ LIỆU THẬT (xem mục 3.2.2, Bảng 3.1)
+// Cách hiệu chỉnh: chạy cannyRoadVote()/houghRoadVote() trên ảnh đã biết cấp đường
+// (Võ Thị Sáu = Cấp B, Ngã tư Vũng Tàu = Cấp A...), log giá trị ratio/lines ra console,
+// rồi thay 2 cặp số dưới đây bằng điểm giữa trung bình 2 nhóm đã đo được.
+const CANNY_TH_AB=0.55, CANNY_TH_BC=0.35;   // ngưỡng tỷ lệ biên cạnh: A/B và B/C
+const HOUGH_TH_AB=6,    HOUGH_TH_BC=2;       // ngưỡng số đường song song: A/B và B/C
+
+// Chuyển ảnh về grayscale + downsample (xử lý nhanh trên di động)
+function toGrayDownsampled(imgData,imgW,imgH,targetW){
+  const scale=targetW/imgW, w=targetW, h=Math.max(1,Math.round(imgH*scale));
+  const gray=new Uint8ClampedArray(w*h), src=imgData.data;
+  for(let y=0;y<h;y++){
+    const sy=Math.min(imgH-1,Math.round(y/scale));
+    for(let x=0;x<w;x++){
+      const sx=Math.min(imgW-1,Math.round(x/scale));
+      const si=(sy*imgW+sx)*4;
+      gray[y*w+x]=0.299*src[si]+0.587*src[si+1]+0.114*src[si+2];
+    }
+  }
+  return {gray,w,h};
+}
+
+// Sobel + ngưỡng — xấp xỉ bước phát hiện biên cạnh của Canny, đủ cho mục đích phân loại đường
+function sobelEdgeMap(gray,w,h,thresh){
+  const edge=new Uint8Array(w*h);
+  for(let y=1;y<h-1;y++){
+    for(let x=1;x<w-1;x++){
+      const i=y*w+x;
+      const gx=gray[i-w-1]+2*gray[i-1]+gray[i+w-1]-(gray[i-w+1]+2*gray[i+1]+gray[i+w+1]);
+      const gy=gray[i-w-1]+2*gray[i-w]+gray[i-w+1]-(gray[i+w-1]+2*gray[i+w]+gray[i+w+1]);
+      edge[i]=Math.sqrt(gx*gx+gy*gy)>thresh?1:0;
+    }
+  }
+  return edge;
+}
+
+// Thuật toán 1 — Canny: tỷ lệ pixel biên cạnh trong nửa dưới khung hình (vùng mặt đường)
+function cannyRoadVote(imgData,imgW,imgH){
+  const {gray,w,h}=toGrayDownsampled(imgData,imgW,imgH,160);
+  const edge=sobelEdgeMap(gray,w,h,60);
+  let count=0,total=0;
+  for(let y=Math.floor(h*0.4);y<h;y++){for(let x=0;x<w;x++){total++;if(edge[y*w+x])count++;}}
+  const ratio=total?count/total:0;
+  let vote='C';
+  if(ratio>=CANNY_TH_AB)vote='A'; else if(ratio>=CANNY_TH_BC)vote='B';
+  return {vote,ratio};
+}
+
+// Thuật toán 2 — Hough Line Transform: đếm số đường thẳng song song (≈ số làn/vạch kẻ)
+function houghRoadVote(imgData,imgW,imgH){
+  const {gray,w,h}=toGrayDownsampled(imgData,imgW,imgH,160);
+  const edge=sobelEdgeMap(gray,w,h,60);
+  const thetaSteps=36, diag=Math.ceil(Math.sqrt(w*w+h*h));
+  const acc=[]; for(let t=0;t<thetaSteps;t++)acc.push(new Int32Array(2*diag));
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      if(!edge[y*w+x])continue;
+      for(let t=0;t<thetaSteps;t++){
+        const theta=t*Math.PI/thetaSteps;
+        const rho=Math.round(x*Math.cos(theta)+y*Math.sin(theta))+diag;
+        acc[t][rho]++;
+      }
+    }
+  }
+  const peakThresh=Math.max(15,Math.round(h*0.18));
+  let lines=0;
+  for(let t=0;t<thetaSteps;t++){
+    for(let r=1;r<acc[t].length-1;r++){
+      if(acc[t][r]>peakThresh&&acc[t][r]>=acc[t][r-1]&&acc[t][r]>=acc[t][r+1])lines++;
+    }
+  }
+  let vote='C';
+  if(lines>=HOUGH_TH_AB)vote='A'; else if(lines>=HOUGH_TH_BC)vote='B';
+  return {vote,lines};
+}
+
+// Thuật toán 3 — YOLO Context: suy luận heuristic từ loại/mật độ phương tiện đã nhận diện
+function yoloContextVote(counts){
+  const total=counts.moto+counts.car+counts.bus;
+  if(!total)return {vote:'B',truckRatio:0};
+  const truckRatio=counts.bus/total;
+  let vote='C';
+  if(truckRatio>=0.12)vote='A'; else if(truckRatio>=0.04)vote='B';
+  return {vote,truckRatio};
+}
+
+// Thuật toán 4 — GPS + OpenStreetMap: tra cứu tag highway qua Nominatim (mục 3.2.2, Bảng 3.9)
+async function osmRoadVote(lat,lng){
+  if(lat==null||lng==null)return {vote:null,tag:null}; // không có GPS → chế độ ngoại tuyến
+  try{
+    const res=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=17&addressdetails=0&extratags=1`,
+      {headers:{'Accept-Language':'vi'}});
+    const data=await res.json();
+    const tag=data?.extratags?.highway||null;
+    let vote=null;
+    if(['motorway','trunk','primary'].includes(tag))vote='A';
+    else if(['secondary','tertiary'].includes(tag))vote='B';
+    else if(['unclassified','residential','living_street','service'].includes(tag))vote='C';
+    return {vote,tag};
+  }catch(e){
+    console.log('[OSM] Lỗi tra cứu, chuyển chế độ ngoại tuyến:',e.message);
+    return {vote:null,tag:null};
+  }
+}
+
+// Tổng hợp 4 phương pháp bằng bỏ phiếu có trọng số: GPS+OSM ×4, Hough ×3, Canny ×2, YOLO Context ×2 (Bảng 3.8)
+async function classifyRoad(imgData,imgW,imgH,counts){
+  const canny=cannyRoadVote(imgData,imgW,imgH);
+  const hough=houghRoadVote(imgData,imgW,imgH);
+  const yoloCtx=yoloContextVote(counts);
+  const osm=await osmRoadVote(currentLat,currentLng);
+
+  const score={A:0,B:0,C:0};
+  score[canny.vote]+=2;
+  score[hough.vote]+=3;
+  score[yoloCtx.vote]+=2;
+  if(osm.vote)score[osm.vote]+=4; // chỉ cộng khi có GPS + mạng (chế độ trực tuyến)
+
+  const road=Object.keys(score).reduce((a,b)=>score[a]>=score[b]?a:b);
+  console.log('[ClassifyRoad]',{canny,hough,yoloCtx,osm,score,road,mode:osm.vote?'online':'offline'});
+  return road;
 }
 
 // ═══════════════════════════════════════════════════
