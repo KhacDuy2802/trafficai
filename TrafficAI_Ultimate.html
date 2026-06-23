@@ -1482,7 +1482,7 @@ async function classifyRoad(imgData,imgW,imgH,counts){
 function calc(r){
   const road=forced||r.loaiDuong?.replace('Cap_','');
   const cfg=ROAD[road]||ROAD['B'];
-  const pcu=(r.soXeMay||0)*0.5+(r.soOTo||0)*1+(r.soXeLon||0)*2.5;
+  const pcu=(r.soXeMay||0)*0.3+(r.soOTo||0)*1+(r.soXeLon||0)*2.0; // PCU theo Bảng 3.11 (mục 3.2.3) — đối chiếu khoảng giá trị văn liệu PCU xe máy
   const or=Math.min(1,r.occupancyRate||0);
   const ds=Math.min(100,Math.round(or*100*0.6+Math.min(pcu/cfg.cap,1)*40));
   let status='gn',ico='🟢',txt='Thông thoáng',sub='Lưu thông bình thường';
