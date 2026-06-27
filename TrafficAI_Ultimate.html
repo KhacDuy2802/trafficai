@@ -797,7 +797,16 @@ function loadHistoryFromFirebase(uid){
   });
 }
 
-let apiKey='';
+let apiKey=localStorage.getItem('tai_claude_key')||''; // key Claude Vision (chỉ dùng khi YOLO lỗi) — nhập 1 lần qua ensureApiKey()
+function ensureApiKey(){
+  if(apiKey)return apiKey;
+  const input=prompt('YOLO không tải được. Nhập Anthropic API key để dùng Claude Vision dự phòng (để trống = bỏ qua):');
+  if(input&&input.trim()){
+    apiKey=input.trim();
+    try{localStorage.setItem('tai_claude_key',apiKey);}catch(e){}
+  }
+  return apiKey;
+}
 let currentStreet='Biên Hòa, Đồng Nai';
 let lastImageDataURL=null;
 let lastBoxes=[]; // Lưu boxes để redraw khi export
@@ -1052,7 +1061,8 @@ async function applyResult(boxes,imgW,imgH,doSave,imgData){
   });
   const totalArea=counted.reduce((s,b)=>s+(b.x2-b.x1)*(b.y2-b.y1),0);
   const OR=Math.min(1,totalArea/(imgW*imgH*0.6));
-  // Phân loại cấp đường thật bằng bỏ phiếu Canny+Hough+YOLO Context+GPS/OSM (mục 3.2.2)
+  // Phân loại cấp đường: ưu tiên GPS+OSM, fallback YOLO Context khi offline (mục 3.2.2)
+  // (Canny Edge Detection và Hough Line Transform đã bị loại bỏ sau kiểm chứng thực nghiệm — không còn dùng)
   const useImgData=imgData||lastImgData;
   const road=useImgData?await classifyRoad(useImgData,imgW,imgH,counts,counted):'B';
   const r={soXeMay:counts.moto,soOTo:counts.car,soXeLon:counts.bus,loaiDuong:'Cap_'+road,occupancyRate:OR,nhanXet:`YOLO: ${counts.moto} xe máy, ${counts.car} ô tô, OR ${Math.round(OR*100)}%.`};
@@ -1299,6 +1309,13 @@ function overlapMetrics(a,b){
 // ═══════════════════════════════════════════════════
 async function runClaude(b64,mime,imgW,imgH){
   if(busy&&!b64){busy=true;}
+  if(!ensureApiKey()){
+    showProc(false);
+    setAl('rd','⚠️','Không có API key','Bỏ qua Claude Vision — không thể phân tích ảnh này');
+    setStatus('Thiếu API key Claude Vision');
+    busy=false;
+    return;
+  }
   showProc(true,'Claude Vision đang phân tích...');
   const v=document.getElementById('vid');
   if(!b64&&stream&&v.readyState>=2){
@@ -1991,11 +2008,11 @@ function exportResult(){
     ctx.drawImage(img,0,0,c.width,c.height);
     // Vẽ lại boxes từ lastBoxes
     const scX=c.width/ov.width, scY=c.height/ov.height;
-    const CLS_COLORS={0:'#ff9500',1:'#3fa9f5',2:'#ff3b30'};
-    const CLS_LABELS={0:'Ô tô',1:'Xe máy',2:'Xe lớn'};
+    const CLS_COLORS={0:'#ff9500',1:'#007aff',2:'#ff3b30',3:'#007aff',5:'#ff3b30',7:'#ff3b30'};
+    const CLS_LABELS={0:'Ô tô',1:'Xe máy',2:'Xe lớn',3:'Xe máy',5:'Xe buýt',7:'Xe tải'};
     lastBoxes.forEach(b=>{
       const col=CLS_COLORS[b.cls]||'#fff';
-      const x=b.x*scX,y=b.y*scY,w=b.w*scX,h=b.h*scY;
+      const x=b.x1*scX,y=b.y1*scY,w=(b.x2-b.x1)*scX,h=(b.y2-b.y1)*scY;
       ctx.strokeStyle=col;ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
       ctx.fillStyle=col;ctx.font='bold 11px Arial';
       const lbl=(CLS_LABELS[b.cls]||'?')+' '+(b.conf*100|0)+'%';
