@@ -1071,6 +1071,7 @@ function toggleROI(){
 
 async function runYOLO_full(imgData,imgW,imgH){
   if(busy)return;busy=true;
+  window.__lastYoloError=null;
   showProc(true,'YOLO đang nhận diện...');
   const t0=performance.now(); // ⏱ Đo thời gian inference thật — phục vụ benchmark FPS (mục 4.1)
   try{
@@ -1120,6 +1121,7 @@ async function runYOLO_full(imgData,imgW,imgH){
   }catch(e){
     console.error('[LỖI YOLO/applyResult]', e);
     console.error('[Stack]', e?.stack||'(không có stack)');
+    window.__lastYoloError = e?.message || String(e);
     showProc(true,'Fallback Claude Vision...');
     setStatus('⚠️ Lỗi xử lý YOLO: '+(e?.message||e)+' — đang dùng Claude Vision dự phòng');
     const v=document.getElementById('vid');
@@ -1353,8 +1355,9 @@ Respond in JSON only. No explanation, no markdown, no extra text:
     saveHistory(r,t);
   }catch(e){
     showProc(false);
-    setAl('rd','⚠️','Lỗi phân tích','Kiểm tra API key hoặc kết nối mạng: '+e.message);
-    setStatus('Lỗi Claude Vision');
+    const yoloErr=window.__lastYoloError?(' [YOLO: '+window.__lastYoloError+']'):'';
+    setAl('rd','⚠️','Lỗi phân tích','Kiểm tra API key hoặc kết nối mạng: '+e.message+yoloErr);
+    setStatus('Lỗi Claude Vision'+yoloErr);
   }
   busy=false;
 }
