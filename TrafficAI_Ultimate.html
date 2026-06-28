@@ -1118,7 +1118,10 @@ async function runYOLO_full(imgData,imgW,imgH){
     showProc(true,'Đang xử lý...');await sleep(100);showProc(false);
     await applyResult(boxes,imgW,imgH,true,imgData);
   }catch(e){
+    console.error('[LỖI YOLO/applyResult]', e);
+    console.error('[Stack]', e?.stack||'(không có stack)');
     showProc(true,'Fallback Claude Vision...');
+    setStatus('⚠️ Lỗi xử lý YOLO: '+(e?.message||e)+' — đang dùng Claude Vision dự phòng');
     const v=document.getElementById('vid');
     const c=document.createElement('canvas');c.width=imgW;c.height=imgH;
     await runClaude('',''  ,imgW,imgH);
