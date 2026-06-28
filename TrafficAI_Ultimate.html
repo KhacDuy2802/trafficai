@@ -348,7 +348,7 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   <div class="bot">
     <div class="ds-card">
       <div class="ds-left">
-        <div class="ds-lbl">D-Score</div>
+        <div class="ds-lbl">Tổng phương tiện</div>
         <div class="ds-bar"><div class="ds-fill" id="dsf"></div></div>
         <div class="ds-status" id="dst">Chờ phân tích</div>
       </div>
@@ -453,9 +453,9 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   </div>
   <div class="chart-scroll">
 
-    <!-- Biểu đồ 1: D-Score theo thời gian -->
+    <!-- Biểu đồ 1: Tổng phương tiện theo thời gian -->
     <div class="chart-sec">
-      <div class="cs-t">📈 D-Score theo thời gian</div>
+      <div class="cs-t">📈 Tổng phương tiện theo thời gian</div>
       <canvas id="chart-dscore" height="120" style="width:100%;border-radius:8px"></canvas>
       <div id="chart-dscore-empty" style="text-align:center;color:var(--tx3);font-size:11px;padding:20px">Chưa có dữ liệu</div>
     </div>
@@ -479,7 +479,7 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 
     <!-- Biểu đồ theo giờ -->
     <div class="chart-sec">
-      <div class="cs-t">🕐 D-Score trung bình theo giờ trong ngày</div>
+      <div class="cs-t">🕐 Số phương tiện trung bình theo giờ trong ngày</div>
       <canvas id="chart-hourly" height="110" style="width:100%;border-radius:8px"></canvas>
       <div id="chart-hourly-empty" style="text-align:center;color:var(--tx3);font-size:11px;padding:16px">Cần ít nhất 5 lần đo</div>
       <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
@@ -495,7 +495,7 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
       <div class="stat-grid">
         <div class="si"><div class="si-n" id="s-moto" style="color:#007aff">0</div><div class="si-l">🛵 Tổng xe máy</div></div>
         <div class="si"><div class="si-n" id="s-car" style="color:#ff9500">0</div><div class="si-l">🚗 Tổng ô tô</div></div>
-        <div class="si"><div class="si-n" id="s-avg" style="color:#34c759">–</div><div class="si-l">📊 D-Score TB</div></div>
+        <div class="si"><div class="si-n" id="s-avg" style="color:#007aff">–</div><div class="si-l">📊 Xe TB/lần</div></div>
         <div class="si"><div class="si-n" id="s-count" style="color:#af52de">0</div><div class="si-l">📷 Số lần phân tích</div></div>
       </div>
     </div>
@@ -567,8 +567,7 @@ canvas#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
       <div class="cs-t">📋 Tổng hợp dữ liệu KLTN</div>
       <div class="stat-grid" style="margin-bottom:10px">
         <div class="si"><div class="si-n" id="rpt-total" style="color:#af52de">0</div><div class="si-l">📷 Tổng lần đo</div></div>
-        <div class="si"><div class="si-n" id="rpt-avg-ds" style="color:#34c759">–</div><div class="si-l">📊 D-Score TB</div></div>
-        <div class="si"><div class="si-n" id="rpt-peak" style="color:#ff3b30">–</div><div class="si-l">🔴 Đỉnh ùn tắc</div></div>
+
         <div class="si"><div class="si-n" id="rpt-moto-pct" style="color:#007aff">–</div><div class="si-l">🛵 % xe máy</div></div>
       </div>
       <button onclick="exportPDF()" style="width:100%;padding:10px;background:linear-gradient(135deg,#ff3b30,#ff6b00);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:6px">📄 Xuất báo cáo PDF</button>
@@ -797,16 +796,7 @@ function loadHistoryFromFirebase(uid){
   });
 }
 
-let apiKey=localStorage.getItem('tai_claude_key')||''; // key Claude Vision (chỉ dùng khi YOLO lỗi) — nhập 1 lần qua ensureApiKey()
-function ensureApiKey(){
-  if(apiKey)return apiKey;
-  const input=prompt('YOLO không tải được. Nhập Anthropic API key để dùng Claude Vision dự phòng (để trống = bỏ qua):');
-  if(input&&input.trim()){
-    apiKey=input.trim();
-    try{localStorage.setItem('tai_claude_key',apiKey);}catch(e){}
-  }
-  return apiKey;
-}
+let apiKey='';
 let currentStreet='Biên Hòa, Đồng Nai';
 let lastImageDataURL=null;
 let lastBoxes=[]; // Lưu boxes để redraw khi export
@@ -1044,7 +1034,7 @@ function inROI(b,W,H){
   }
   return inside;
 }
-// Đếm + tính D-Score + vẽ, có lọc ROI. doSave=true thì mới lưu lịch sử.
+// Đếm + phân loại đường + vẽ, có lọc ROI. doSave=true thì mới lưu lịch sử.
 // imgData: ảnh gốc để chạy Canny/Hough phân loại đường (nếu không truyền, dùng lại ảnh gần nhất)
 async function applyResult(boxes,imgW,imgH,doSave,imgData){
   if(imgData)lastImgData=imgData;
@@ -1061,8 +1051,7 @@ async function applyResult(boxes,imgW,imgH,doSave,imgData){
   });
   const totalArea=counted.reduce((s,b)=>s+(b.x2-b.x1)*(b.y2-b.y1),0);
   const OR=Math.min(1,totalArea/(imgW*imgH*0.6));
-  // Phân loại cấp đường: ưu tiên GPS+OSM, fallback YOLO Context khi offline (mục 3.2.2)
-  // (Canny Edge Detection và Hough Line Transform đã bị loại bỏ sau kiểm chứng thực nghiệm — không còn dùng)
+  // Phân loại cấp đường thật bằng bỏ phiếu Canny+Hough+YOLO Context+GPS/OSM (mục 3.2.2)
   const useImgData=imgData||lastImgData;
   const road=useImgData?await classifyRoad(useImgData,imgW,imgH,counts,counted):'B';
   const r={soXeMay:counts.moto,soOTo:counts.car,soXeLon:counts.bus,loaiDuong:'Cap_'+road,occupancyRate:OR,nhanXet:`YOLO: ${counts.moto} xe máy, ${counts.car} ô tô, OR ${Math.round(OR*100)}%.`};
@@ -1126,7 +1115,7 @@ async function runYOLO_full(imgData,imgW,imgH){
     const inferMs=Math.round(t1-t0);
     const fpsEquiv=(1000/inferMs).toFixed(1);
     console.log(`%c[BENCHMARK] Thời gian inference YOLO: ${inferMs} ms | FPS tương đương: ${fpsEquiv}`,'color:#0f0;font-weight:bold;font-size:14px');
-    showProc(true,'Tính D-Score...');await sleep(100);showProc(false);
+    showProc(true,'Đang xử lý...');await sleep(100);showProc(false);
     await applyResult(boxes,imgW,imgH,true,imgData);
   }catch(e){
     showProc(true,'Fallback Claude Vision...');
@@ -1309,13 +1298,6 @@ function overlapMetrics(a,b){
 // ═══════════════════════════════════════════════════
 async function runClaude(b64,mime,imgW,imgH){
   if(busy&&!b64){busy=true;}
-  if(!ensureApiKey()){
-    showProc(false);
-    setAl('rd','⚠️','Không có API key','Bỏ qua Claude Vision — không thể phân tích ảnh này');
-    setStatus('Thiếu API key Claude Vision');
-    busy=false;
-    return;
-  }
   showProc(true,'Claude Vision đang phân tích...');
   const v=document.getElementById('vid');
   if(!b64&&stream&&v.readyState>=2){
@@ -1360,7 +1342,7 @@ Respond in JSON only. No explanation, no markdown, no extra text:
     const clean=raw.replace(/```json|```/g,'').trim();
     const r=JSON.parse(clean);
     if(typeof r.soXeMay!=='number')throw new Error('Invalid response');
-    showProc(true,'Tính D-Score...');await sleep(100);
+    showProc(true,'Đang xử lý...');await sleep(100);
     const t=calc(r);showProc(false);
     render(r,t);
     document.getElementById('export-btn').style.display='flex';
@@ -1452,15 +1434,8 @@ async function classifyRoad(imgData,imgW,imgH,counts,boxes){
 // ═══════════════════════════════════════════════════
 function calc(r){
   const road=forced||r.loaiDuong?.replace('Cap_','');
-  const cfg=ROAD[road]||ROAD['B'];
-  const pcu=(r.soXeMay||0)*0.3+(r.soOTo||0)*1+(r.soXeLon||0)*2.0; // PCU theo Bảng 3.11 (mục 3.2.3) — đối chiếu khoảng giá trị văn liệu PCU xe máy
-  const or=Math.min(1,r.occupancyRate||0);
-  const ds=Math.min(100,Math.round(or*100*0.6+Math.min(pcu/cfg.cap,1)*40));
-  let status='gn',ico='🟢',txt='Thông thoáng',sub='Lưu thông bình thường';
-  if(ds>=80){status='rd';ico='🔴';txt='Ùn tắc nghiêm trọng';sub='Khuyến cáo chọn tuyến khác';}
-  else if(ds>=60){status='og';ico='🟠';txt='Ùn tắc';sub='Di chuyển chậm, nên tránh';}
-  else if(ds>=40){status='yw';ico='🟡';txt='Đông đúc';sub='Lưu thông chậm hơn bình thường';}
-  return{pcu,ds,status,ico,txt,sub,road:road||'B'};
+  const total=(r.soXeMay||0)+(r.soOTo||0)+(r.soXeLon||0);
+  return{total,road:road||'B'};
 }
 
 // ═══════════════════════════════════════════════════
@@ -1470,39 +1445,38 @@ function render(r,t){
   document.getElementById('cm').textContent=r.soXeMay||0;
   document.getElementById('cc').textContent=r.soOTo||0;
   document.getElementById('cb').textContent=r.soXeLon||0;
-  document.getElementById('cp').textContent=Math.round(t.pcu);
-  document.getElementById('dsv').textContent=t.ds;
-  document.getElementById('dsf').style.width=t.ds+'%';
-  const col={gn:'#34c759',yw:'#ff9500',og:'#ff6b00',rd:'#ff3b30'};
-  document.getElementById('dsv').style.color=col[t.status];
-  document.getElementById('dsf').style.background=col[t.status];
-  document.getElementById('dst').textContent=t.txt;
-  setAl(t.status,t.ico,t.txt,(r.nhanXet||t.sub));
+  document.getElementById('cp').textContent=t.total;
+  document.getElementById('dsv').textContent=t.total;
+  document.getElementById('dsf').style.width=Math.min(100,t.total*5)+'%';
+  document.getElementById('dsv').style.color='#007aff';
+  document.getElementById('dsf').style.background='#007aff';
+  document.getElementById('dst').textContent='phương tiện';
+  setAl('gn','✅','Đã phân tích',`Cấp ${t.road} · ${t.total} phương tiện nhận diện được`);
   document.getElementById('hc1').textContent='Cấp '+t.road;
-  document.getElementById('hc2').textContent='OR '+(Math.round((r.occupancyRate||0)*100))+'%';
-  document.getElementById('hc3').textContent='PCU '+Math.round(t.pcu);
+  document.getElementById('hc2').style.display='none';
+  document.getElementById('hc3').style.display='none';
   // Hiện meta row và export row
   document.getElementById('meta-row').style.display='flex';
   document.getElementById('export-row').style.display='flex';
   document.getElementById('export-btn') && (document.getElementById('export-btn').style.display='none');
   const now=new Date();
   document.getElementById('meta-time').textContent=now.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})+' · '+now.toLocaleDateString('vi-VN');
-  const total=(r.soXeMay||0)*0.5+(r.soOTo||0)*1+(r.soXeLon||0)*2.5||1;
-  const mPct=(r.soXeMay||0)*0.5/total,cPct=(r.soOTo||0)/total,bPct=(r.soXeLon||0)*2.5/total;
+  const totalW=(r.soXeMay||0)+(r.soOTo||0)+(r.soXeLon||0)||1;
+  const mPct=(r.soXeMay||0)/totalW,cPct=(r.soOTo||0)/totalW,bPct=(r.soXeLon||0)/totalW;
   const C=CIRC;
   document.getElementById('pie-m').style.strokeDasharray=`${mPct*C} ${C}`;
   document.getElementById('pie-c').style.strokeDasharray=`${cPct*C} ${C}`;
   document.getElementById('pie-c').style.strokeDashoffset=-(mPct*C);
   document.getElementById('pie-b').style.strokeDasharray=`${bPct*C} ${C}`;
   document.getElementById('pie-b').style.strokeDashoffset=-((mPct+cPct)*C);
-  document.getElementById('pie-pct').textContent=Math.round(t.pcu);
+  document.getElementById('pie-pct').textContent=t.total;
 }
 
 // ═══════════════════════════════════════════════════
 // HISTORY
 // ═══════════════════════════════════════════════════
 function saveHistory(r,t){
-  const entry={time:Date.now(),moto:r.soXeMay||0,car:r.soOTo||0,bus:r.soXeLon||0,pcu:Math.round(t.pcu),ds:t.ds,status:t.status,road:t.road,note:r.nhanXet||'',street:currentStreet,lat:currentLat,lng:currentLng};
+  const entry={time:Date.now(),moto:r.soXeMay||0,car:r.soOTo||0,bus:r.soXeLon||0,total:t.total,road:t.road,note:r.nhanXet||'',street:currentStreet,lat:currentLat,lng:currentLng};
   appHistory.unshift(entry);if(appHistory.length>50)appHistory.pop();
   const data=JSON.stringify(appHistory);
   try{localStorage.setItem('tai_hist',data);}catch(e){}
@@ -1535,16 +1509,13 @@ function renderHistory(){
   const empty=document.getElementById('hist-empty');
   if(!appHistory.length){if(empty)empty.style.display='flex';return;}
   if(empty)empty.style.display='none';
-  const col={gn:'#34c759',yw:'#ff9500',og:'#ff6b00',rd:'#ff3b30'};
-  const lbl={gn:'Thông thoáng',yw:'Đông đúc',og:'Ùn tắc',rd:'Ùn tắc nặng'};
   list.querySelectorAll('.hist-item').forEach(e=>e.remove());
   appHistory.forEach(h=>{
     const d=new Date(h.time);
     const el=document.createElement('div');el.className='hist-item';
     el.innerHTML=`<div class="hi-left"><div class="hi-loc">📍 ${esc(h.street||'Biên Hòa')} · Cấp ${esc(h.road||'B')}</div>
-    <div class="hi-sub">🛵 ${h.moto} &nbsp;🚗 ${h.car} &nbsp;🚌 ${h.bus} &nbsp;⚡ ${h.pcu} PCU</div>
-    <div class="hi-badge ${h.status}">${lbl[h.status]||''}</div></div>
-    <div><div class="hi-score" style="color:${col[h.status]}">${h.ds}%</div>
+    <div class="hi-sub">🛵 ${h.moto} &nbsp;🚗 ${h.car} &nbsp;🚌 ${h.bus}</div></div>
+    <div><div class="hi-score" style="color:#007aff">${h.total??(h.moto+h.car+h.bus)}</div>
     <div class="hi-time">${d.toLocaleDateString('vi-VN')}<br>${d.toLocaleTimeString('vi-VN')}</div></div>`;
     list.appendChild(el);
   });
@@ -1609,11 +1580,11 @@ function drawYOLO(boxes,r,t,imgW,imgH){
 
 function exportCSV(){
   if(!appHistory.length){alert('Chưa có dữ liệu để xuất!');return;}
-  const header='Thời gian,Xe máy,Ô tô,Xe lớn,PCU,D-Score,Tình trạng,Loại đường';
-  const lbl={gn:'Thông thoáng',yw:'Đông đúc',og:'Ùn tắc',rd:'Ùn tắc nặng'};
+  const header='Thời gian,Xe máy,Ô tô,Xe lớn,Tổng phương tiện,Loại đường';
   const rows=appHistory.slice(0,20).map(h=>{
     const d=new Date(h.time);
-    return [d.toLocaleDateString('vi-VN')+' '+d.toLocaleTimeString('vi-VN'),h.moto,h.car,h.bus,h.pcu,h.ds+'%',lbl[h.status]||'','Cấp '+(h.road||'B')].join(',');
+    const total=h.total??(h.moto+h.car+h.bus);
+    return [d.toLocaleDateString('vi-VN')+' '+d.toLocaleTimeString('vi-VN'),h.moto,h.car,h.bus,total,'Cấp '+(h.road||'B')].join(',');
   });
   const csv='﻿'+header+'\n'+rows.join('\n');
   const a=document.createElement('a');
@@ -1626,10 +1597,6 @@ function updateReportStats(){
   const total=appHistory.length;
   document.getElementById('rpt-total').textContent=total;
   if(!total)return;
-  const avgDs=Math.round(appHistory.reduce((s,h)=>s+h.ds,0)/total);
-  document.getElementById('rpt-avg-ds').textContent=avgDs+'%';
-  const peak=Math.max(...appHistory.map(h=>h.ds));
-  document.getElementById('rpt-peak').textContent=peak+'%';
   const totalMoto=appHistory.reduce((s,h)=>s+h.moto,0);
   const totalAll=appHistory.reduce((s,h)=>s+h.moto+h.car+h.bus,0);
   document.getElementById('rpt-moto-pct').textContent=totalAll?Math.round(totalMoto/totalAll*100)+'%':'–';
@@ -1662,21 +1629,19 @@ function exportPDF(){
   const note=document.getElementById('rpt-note').value||'';
   const total=appHistory.length;
   if(!total){alert('Chưa có dữ liệu để xuất!');return;}
-  const avgDs=Math.round(appHistory.reduce((s,h)=>s+h.ds,0)/total);
   const totalMoto=appHistory.reduce((s,h)=>s+h.moto,0);
   const totalCar=appHistory.reduce((s,h)=>s+h.car,0);
   const totalBus=appHistory.reduce((s,h)=>s+h.bus,0);
-  const peak=Math.max(...appHistory.map(h=>h.ds));
   const rows=appHistory.slice(0,20).map((h,i)=>{
     const d=new Date(h.time);
-    const lbl={gn:'Thông thoáng',yw:'Đông đúc',og:'Ùn tắc',rd:'Ùn tắc nặng'};
+    const total_h=h.total??(h.moto+h.car+h.bus);
     return `<tr style="background:${i%2?'#f9f9fb':'#fff'}">
       <td style="padding:5px 8px;font-size:11px">${d.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})} ${d.toLocaleDateString('vi-VN')}</td>
       <td style="padding:5px 8px;text-align:center;color:#007aff;font-weight:600">${h.moto}</td>
       <td style="padding:5px 8px;text-align:center;color:#ff9500;font-weight:600">${h.car}</td>
       <td style="padding:5px 8px;text-align:center;color:#ff6b00;font-weight:600">${h.bus}</td>
-      <td style="padding:5px 8px;text-align:center;font-weight:700">${h.ds}%</td>
-      <td style="padding:5px 8px;text-align:center;font-size:10px">${lbl[h.status]||''}</td>
+      <td style="padding:5px 8px;text-align:center;font-weight:700">${total_h}</td>
+      <td style="padding:5px 8px;text-align:center;font-size:10px">Cấp ${h.road||'B'}</td>
     </tr>`;
   }).join('');
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -1684,7 +1649,7 @@ function exportPDF(){
   <style>body{font-family:Arial,sans-serif;padding:20px;max-width:800px;margin:0 auto}
   h1{color:#007aff;font-size:22px}h2{font-size:15px;color:#333;margin-top:20px}
   .meta{color:#666;font-size:12px;margin:4px 0}
-  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:15px 0}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:15px 0}
   .card{background:#f2f2f7;border-radius:10px;padding:12px;text-align:center}
   .card-n{font-size:24px;font-weight:700}.card-l{font-size:10px;color:#666;margin-top:2px}
   table{width:100%;border-collapse:collapse;margin-top:10px}
@@ -1699,11 +1664,10 @@ function exportPDF(){
   <div class="grid">
     <div class="card"><div class="card-n" style="color:#007aff">${totalMoto}</div><div class="card-l">🛵 Tổng xe máy</div></div>
     <div class="card"><div class="card-n" style="color:#ff9500">${totalCar}</div><div class="card-l">🚗 Tổng ô tô</div></div>
-    <div class="card"><div class="card-n" style="color:#34c759">${avgDs}%</div><div class="card-l">📊 D-Score TB</div></div>
-    <div class="card"><div class="card-n" style="color:#ff3b30">${peak}%</div><div class="card-l">🔴 Đỉnh ùn tắc</div></div>
+    <div class="card"><div class="card-n" style="color:#ff6b00">${totalBus}</div><div class="card-l">🚌 Tổng xe lớn</div></div>
   </div>
   <h2>Chi tiết ${Math.min(total,20)} lần đo gần nhất</h2>
-  <table><thead><tr><th>Thời gian</th><th>Xe máy</th><th>Ô tô</th><th>Xe lớn</th><th>D-Score</th><th>Tình trạng</th></tr></thead>
+  <table><thead><tr><th>Thời gian</th><th>Xe máy</th><th>Ô tô</th><th>Xe lớn</th><th>Tổng</th><th>Loại đường</th></tr></thead>
   <tbody>${rows}</tbody></table>
   <div class="footer">Tạo bởi TrafficAI · KLTN · Biên Hòa, Đồng Nai</div>
   </body></html>`;
@@ -1748,7 +1712,7 @@ function renderChart(){
   const total=appHistory.length;
   document.getElementById('s-moto').textContent=appHistory.reduce((s,h)=>s+h.moto,0);
   document.getElementById('s-car').textContent=appHistory.reduce((s,h)=>s+h.car,0);
-  document.getElementById('s-avg').textContent=total?Math.round(appHistory.reduce((s,h)=>s+h.ds,0)/total)+'%':'–';
+  document.getElementById('s-avg').textContent=total?Math.round(appHistory.reduce((s,h)=>s+(h.total??(h.moto+h.car+h.bus)),0)/total):'–';
   document.getElementById('s-count').textContent=total;
   if(!total){
     ['chart-dscore','chart-vehicles','chart-pie'].forEach(id=>{
@@ -1769,7 +1733,7 @@ function renderChart(){
   const gridColor=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.08)';
   const textColor=isDark?'rgba(255,255,255,0.4)':'rgba(0,0,0,0.4)';
 
-  // ── Biểu đồ 1: D-Score line chart ──
+  // ── Biểu đồ 1: Tổng phương tiện theo thời gian ──
   const c1=document.getElementById('chart-dscore');
   if(c1){
     c1.style.display='block';
@@ -1777,7 +1741,8 @@ function renderChart(){
     const ctx=c1.getContext('2d');
     const W=c1.width,H=c1.height,pad={t:10,r:10,b:24,l:28};
     ctx.clearRect(0,0,W,H);
-    const maxDs=Math.max(...last.map(h=>h.ds),1);
+    const getTotal=h=>h.total??(h.moto+h.car+h.bus);
+    const maxDs=Math.max(...last.map(getTotal),1);
     const xStep=(W-pad.l-pad.r)/(last.length-1||1);
     // Grid
     for(let i=0;i<=4;i++){
@@ -1785,31 +1750,31 @@ function renderChart(){
       ctx.strokeStyle=gridColor;ctx.lineWidth=1;
       ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();
       ctx.fillStyle=textColor;ctx.font='9px sans-serif';ctx.textAlign='right';
-      ctx.fillText(Math.round(maxDs*i/4)+'%',pad.l-3,y+3);
+      ctx.fillText(Math.round(maxDs*i/4),pad.l-3,y+3);
     }
     // Fill
     ctx.beginPath();
     last.forEach((h,i)=>{
-      const x=pad.l+i*xStep,y=pad.t+(H-pad.t-pad.b)*(1-h.ds/maxDs);
+      const x=pad.l+i*xStep,y=pad.t+(H-pad.t-pad.b)*(1-getTotal(h)/maxDs);
       i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
     });
     ctx.lineTo(pad.l+(last.length-1)*xStep,H-pad.b);
     ctx.lineTo(pad.l,H-pad.b);ctx.closePath();
     const grad=ctx.createLinearGradient(0,pad.t,0,H-pad.b);
-    grad.addColorStop(0,'rgba(52,199,89,0.3)');grad.addColorStop(1,'rgba(52,199,89,0)');
+    grad.addColorStop(0,'rgba(0,122,255,0.3)');grad.addColorStop(1,'rgba(0,122,255,0)');
     ctx.fillStyle=grad;ctx.fill();
     // Line
-    ctx.beginPath();ctx.strokeStyle='#34c759';ctx.lineWidth=2;ctx.lineJoin='round';
+    ctx.beginPath();ctx.strokeStyle='#007aff';ctx.lineWidth=2;ctx.lineJoin='round';
     last.forEach((h,i)=>{
-      const x=pad.l+i*xStep,y=pad.t+(H-pad.t-pad.b)*(1-h.ds/maxDs);
+      const x=pad.l+i*xStep,y=pad.t+(H-pad.t-pad.b)*(1-getTotal(h)/maxDs);
       i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
     });
     ctx.stroke();
     // Dots + labels
     last.forEach((h,i)=>{
-      const x=pad.l+i*xStep,y=pad.t+(H-pad.t-pad.b)*(1-h.ds/maxDs);
+      const x=pad.l+i*xStep,y=pad.t+(H-pad.t-pad.b)*(1-getTotal(h)/maxDs);
       ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);
-      ctx.fillStyle=sCOL[h.status]||'#34c759';ctx.fill();
+      ctx.fillStyle='#007aff';ctx.fill();
       if(i%Math.max(1,Math.floor(last.length/6))===0){
         const d=new Date(h.time);
         ctx.fillStyle=textColor;ctx.font='8px sans-serif';ctx.textAlign='center';
@@ -1869,11 +1834,11 @@ function renderChart(){
     const ctx4=c4.getContext('2d');
     const W=c4.width,H=c4.height,pad={t:10,r:10,b:24,l:28};
     ctx4.clearRect(0,0,W,H);
-    // Tính D-Score TB theo giờ
+    // Tính tổng phương tiện TB theo giờ
     const hourData=Array(24).fill(null).map(()=>({sum:0,count:0}));
     appHistory.forEach(h=>{
       const hr=new Date(h.time).getHours();
-      hourData[hr].sum+=h.ds;hourData[hr].count++;
+      hourData[hr].sum+=(h.total??(h.moto+h.car+h.bus));hourData[hr].count++;
     });
     const hrs=hourData.map((d,i)=>({hr:i,avg:d.count?Math.round(d.sum/d.count):null}));
     const validHrs=hrs.filter(h=>h.avg!==null);
@@ -1887,7 +1852,7 @@ function renderChart(){
         ctx4.strokeStyle=gridColor;ctx4.lineWidth=1;
         ctx4.beginPath();ctx4.moveTo(pad.l,y);ctx4.lineTo(W-pad.r,y);ctx4.stroke();
         ctx4.fillStyle=textColor;ctx4.font='8px sans-serif';ctx4.textAlign='right';
-        ctx4.fillText(Math.round(maxV*i/4)+'%',pad.l-3,y+3);
+        ctx4.fillText(Math.round(maxV*i/4),pad.l-3,y+3);
       }
       // Bars
       const bw=Math.max(2,(W-pad.l-pad.r)/24-1);
@@ -1898,7 +1863,7 @@ function renderChart(){
         const x=pad.l+hr*xStep;
         const bh=(avg/maxV)*(H-pad.t-pad.b);
         const isPeak=(hr>=6&&hr<=9)||(hr>=16&&hr<=19);
-        ctx4.fillStyle=isPeak?(avg>=60?'#ff3b30':'#ff9500'):'#34c759';
+        ctx4.fillStyle=isPeak?'#007aff':'#34c759';
         ctx4.globalAlpha=0.85;
         ctx4.fillRect(x-bw/2,H-pad.b-bh,bw,bh);
         ctx4.globalAlpha=1;
@@ -2008,11 +1973,11 @@ function exportResult(){
     ctx.drawImage(img,0,0,c.width,c.height);
     // Vẽ lại boxes từ lastBoxes
     const scX=c.width/ov.width, scY=c.height/ov.height;
-    const CLS_COLORS={0:'#ff9500',1:'#007aff',2:'#ff3b30',3:'#007aff',5:'#ff3b30',7:'#ff3b30'};
-    const CLS_LABELS={0:'Ô tô',1:'Xe máy',2:'Xe lớn',3:'Xe máy',5:'Xe buýt',7:'Xe tải'};
+    const CLS_COLORS={0:'#ff9500',1:'#3fa9f5',2:'#ff3b30'};
+    const CLS_LABELS={0:'Ô tô',1:'Xe máy',2:'Xe lớn'};
     lastBoxes.forEach(b=>{
       const col=CLS_COLORS[b.cls]||'#fff';
-      const x=b.x1*scX,y=b.y1*scY,w=(b.x2-b.x1)*scX,h=(b.y2-b.y1)*scY;
+      const x=b.x*scX,y=b.y*scY,w=b.w*scX,h=b.h*scY;
       ctx.strokeStyle=col;ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
       ctx.fillStyle=col;ctx.font='bold 11px Arial';
       const lbl=(CLS_LABELS[b.cls]||'?')+' '+(b.conf*100|0)+'%';
