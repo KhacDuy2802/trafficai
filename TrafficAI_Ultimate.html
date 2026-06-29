@@ -933,6 +933,7 @@ async function upload(file){
   if(!file)return;const r=new FileReader();
   r.onload=async e=>{
     const url=e.target.result,b64=url.split(',')[1];
+    lastImageDataURL=url; // Lưu lại để tính năng Zoom (🔍) hoạt động được với ảnh upload, không chỉ ảnh chụp từ Camera
     const img=new Image();
     img.onload=async()=>{
       if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;document.getElementById('vid').srcObject=null;}
