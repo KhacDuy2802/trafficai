@@ -1556,7 +1556,8 @@ function drawYOLO(boxes,r,t,imgW,imgH){
   boxes.forEach(b=>{
     const x=offX+b.x1*scale,y=offY+b.y1*scale;
     const w=(b.x2-b.x1)*scale,h=(b.y2-b.y1)*scale;
-    if(w<4||h<4)return;
+    if(w<1.5||h<1.5)return; // hạ ngưỡng vẽ (trước là 4px) để box nhỏ vẫn hiện ra
+    const isTiny=w<6||h<6; // box rất nhỏ trên màn hình: vẫn vẽ nhưng nhạt/mỏng hơn
     const counted=inROI(b,imgW,imgH);
     if(!counted){
       // Ngoài vùng: làm mờ, không đếm, không nhãn
@@ -1566,8 +1567,10 @@ function drawYOLO(boxes,r,t,imgW,imgH){
       return;
     }
     ctx.strokeStyle=clr[b.cls]||'#fff';
-    ctx.lineWidth=Math.max(1.5,Math.min(w,h)/40);
+    ctx.globalAlpha=isTiny?0.55:1;
+    ctx.lineWidth=isTiny?1:Math.max(1.5,Math.min(w,h)/40);
     ctx.strokeRect(x,y,w,h);
+    ctx.globalAlpha=1;
     // Chỉ hiện label nếu box đủ lớn (tránh chồng)
     if(w>30&&h>20){
       const label=nm[b.cls]||'?';
