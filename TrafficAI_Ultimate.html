@@ -1140,14 +1140,12 @@ async function runYOLO_at(imgData,imgW,imgH,inputSize){
   if(!_yCanvas){_yCanvas=document.createElement('canvas');_yCtx=_yCanvas.getContext('2d',{willReadFrequently:true});}
   if(_yCanvas.width!==sz){_yCanvas.width=sz;_yCanvas.height=sz;}
   const canvas=_yCanvas,ctx=_yCtx;
-  const scale=Math.min(sz/imgW,sz/imgH);
-  const nw=Math.round(imgW*scale),nh=Math.round(imgH*scale);
-  const dx=Math.floor((sz-nw)/2),dy=Math.floor((sz-nh)/2);
-  ctx.fillStyle='#808080';ctx.fillRect(0,0,sz,sz);
+  // Stretch to sz×sz - khớp đúng tiền xử lý dữ liệu huấn luyện (mục 3.1.2), KHÔNG giữ tỷ lệ khung hình, KHÔNG viền xám
+  const scaleX=sz/imgW, scaleY=sz/imgH;
   if(!_tmpCanvas){_tmpCanvas=document.createElement('canvas');_tmpCtx=_tmpCanvas.getContext('2d',{willReadFrequently:true});}
   if(_tmpCanvas.width!==imgW||_tmpCanvas.height!==imgH){_tmpCanvas.width=imgW;_tmpCanvas.height=imgH;}
   _tmpCtx.putImageData(imgData,0,0);
-  ctx.drawImage(_tmpCanvas,dx,dy,nw,nh);
+  ctx.drawImage(_tmpCanvas,0,0,imgW,imgH,0,0,sz,sz);
   const pixels=ctx.getImageData(0,0,sz,sz).data;
   const tensor=new Float32Array(3*sz*sz);
   for(let i=0;i<sz*sz;i++){tensor[i]=pixels[i*4]/255;tensor[sz*sz+i]=pixels[i*4+1]/255;tensor[2*sz*sz+i]=pixels[i*4+2]/255;}
@@ -1184,8 +1182,8 @@ async function runYOLO_at(imgData,imgW,imgH,inputSize){
     const relW=w/sz,relH=h/sz;
     const minSz=window._minBoxSize||0.015;
     if(relW<minSz||relH<minSz)continue;
-    const x1=(cx-w/2-dx)/scale,y1=(cy-h/2-dy)/scale;
-    const x2=(cx+w/2-dx)/scale,y2=(cy+h/2-dy)/scale;
+    const x1=(cx-w/2)/scaleX,y1=(cy-h/2)/scaleY;
+    const x2=(cx+w/2)/scaleX,y2=(cy+h/2)/scaleY;
     if(x2<0||y2<0||x1>imgW||y1>imgH)continue;
     boxes.push({x1:Math.max(0,x1),y1:Math.max(0,y1),x2:Math.min(imgW,x2),y2:Math.min(imgH,y2),conf:bv,cls:bc});
   }
