@@ -601,8 +601,8 @@ const CIRC=2*Math.PI*26;
 const MODEL_URL='traffic_bienhoa_v4.onnx';
 const CLS_MOTO=3,CLS_CAR=2,CLS_BUS=5,CLS_TRUCK=7;
 const CLS_MOTO2=0,CLS_CAR2=1,CLS_BUS2=2; // fallback class IDs cho custom model
-const CONF=0.12,IOU=0.35,SZ=512; // SZ=512 khớp huấn luyện. CONF=0.12 cân bằng: giảm box ồn (5-14%) nhưng vẫn detect đủ
-const LARGE_CONF=0.08; // Xe lớn (class 2,5,7): threshold 0.08 (từ 0.25). Đã verify thực tế: detect xe tải/buýt tốt
+const CONF=0.12,IOU=0.35,SZ=512; // CONF=0.12 cân bằng detect/nhiễu
+const LARGE_CONF=0.08; // Xe lớn: 0.08 để detect xe tải/buýt tốt (verify thực tế)
 
 let stream=null,forced=null,busy=false;
 let ortSession=null,modelReady=false;
@@ -901,7 +901,7 @@ async function oneShot(){
   const imgData=c.getContext('2d').getImageData(0,0,c.width,c.height);
   setStatus('⚡ Đang phân tích...');
   const hrOS=new Date().getHours();
-  window._dynConf=hrOS>=20||hrOS<6?0.05:hrOS>=18||hrOS<8?0.08:0.15;
+  window._dynConf=hrOS>=20||hrOS<6?0.10:hrOS>=18||hrOS<8?0.12:0.15;
   if(modelReady){
     await runYOLO_full(imgData,c.width,c.height);
   } else {
@@ -919,8 +919,8 @@ async function analyze(){
   const v=document.getElementById('vid');if(!stream||v.readyState<2)return;
   // Tự động điều chỉnh CONF theo giờ
   const hour=new Date().getHours();
-  if(hour>=20||hour<6) window._dynConf=0.05; // Ban đêm: rất nhạy
-  else if(hour>=18||hour<8) window._dynConf=0.08; // Hoàng hôn/bình minh
+  if(hour>=20||hour<6) window._dynConf=0.10; // Ban đêm: nhạy vừa (tránh nhiễu 5%)
+  else if(hour>=18||hour<8) window._dynConf=0.12; // Hoàng hôn/bình minh
   else window._dynConf=0.15; // Ban ngày: bình thường
   const c=document.createElement('canvas');c.width=v.videoWidth||640;c.height=v.videoHeight||480;
   c.getContext('2d').drawImage(v,0,0);
@@ -952,7 +952,7 @@ async function upload(file){
         tmpC.getContext('2d').drawImage(img,0,0);
         const imgData=tmpC.getContext('2d').getImageData(0,0,img.width,img.height);
         const hr=new Date().getHours();
-        window._dynConf=hr>=20||hr<6?0.05:hr>=18||hr<8?0.08:0.15;
+        window._dynConf=hr>=20||hr<6?0.10:hr>=18||hr<8?0.12:0.15;
         await runYOLO_full(imgData,img.width,img.height);
       } else {
         await runClaude(b64,file.type||'image/jpeg',img.width,img.height);
