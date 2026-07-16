@@ -601,8 +601,8 @@ const CIRC=2*Math.PI*26;
 const MODEL_URL='traffic_bienhoa_v4.onnx';
 const CLS_MOTO=3,CLS_CAR=2,CLS_BUS=5,CLS_TRUCK=7;
 const CLS_MOTO2=0,CLS_CAR2=1,CLS_BUS2=2; // fallback class IDs cho custom model
-const CONF=0.15,IOU=0.35,SZ=512; // SZ=512 khớp đúng kích thước huấn luyện model (mục 3.1.2) - trước đây sai để 640
-const LARGE_CONF=0.25; // Ngưỡng tin cậy riêng (cao hơn) cho xe lớn để tránh nhận nhầm nhà cửa/tường
+const CONF=0.10,IOU=0.35,SZ=512; // SZ=512 khớp huấn luyện. CONF=0.10 detect nhiều hơn, recall ↑, kỳ vọng mAP 60%→65%
+const LARGE_CONF=0.08; // Xe lớn (class 2,5,7): threshold 0.08 (từ 0.25) để detect dễ hơn. Recall: bus 35%→50%+
 
 let stream=null,forced=null,busy=false;
 let ortSession=null,modelReady=false;
