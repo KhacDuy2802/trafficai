@@ -602,7 +602,7 @@ const MODEL_URL='traffic_bienhoa_v4.onnx';
 const CLS_MOTO=3,CLS_CAR=2,CLS_BUS=5,CLS_TRUCK=7;
 const CLS_MOTO2=0,CLS_CAR2=1,CLS_BUS2=2; // fallback class IDs cho custom model
 const CONF=0.12,IOU=0.35,SZ=512; // CONF=0.12 cân bằng detect/nhiễu
-const LARGE_CONF=0.20; // Xe lớn: 0.20 (từ 0.25). Lọc nhiễu mái nhà/tường (11%) nhưng giữ xe tải/buýt thật (~27%)
+const LARGE_CONF=0.35; // Xe lớn: 0.35 (cao) - ưu tiên KHÔNG nhầm mái nhà/tường/container. Chấp nhận đôi khi bỏ sót xe tải thật
 
 let stream=null,forced=null,busy=false;
 let ortSession=null,modelReady=false;
